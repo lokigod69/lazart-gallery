@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>LAZART gallery</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="word">LAZART</span><span class="sub" id="subtitle">loading…</span></div>
+  <div class="tools">
+    <button id="btn-favs" class="chip" title="Show only images you loved">♥ <span id="fav-count">0</span></button>
+    <button id="btn-feedback" class="chip">Send feedback</button>
+  </div>
+</header>
+<nav class="chips" id="lanes">
+  <button class="chip on" data-lane="all">All lanes</button>
+  <button class="chip" data-lane="safe">Safe</button>
+  <button class="chip" data-lane="twist">Lazart twist</button>
+</nav>
+<nav class="chips" id="categories"></nav>
+<main id="grid" class="grid" aria-live="polite"></main>
+<p class="foot" id="foot"></p>
+
+<div id="viewer" class="viewer" hidden>
+  <button class="close" id="close" aria-label="Close">×</button>
+  <button class="nav prev" id="prev" aria-label="Previous">‹</button>
+  <button class="nav next" id="next" aria-label="Next">›</button>
+  <figure>
+    <img id="big" alt="">
+    <figcaption>
+      <div class="caption-head">
+        <div><strong id="v-title"></strong><span id="v-meta" class="meta"></span></div>
+        <div class="reactions">
+          <button id="r-love" class="react" title="Love it">♥</button>
+          <button id="r-more" class="react" title="More like this">★</button>
+          <button id="r-no" class="react" title="Not for us">✕</button>
+        </div>
+      </div>
+      <textarea id="v-note" placeholder="Note (optional): why, which room, what to change…"></textarea>
+      <details><summary>Prompt &amp; provenance</summary><pre id="v-prompt"></pre></details>
+    </figcaption>
+  </figure>
+</div>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-card">
+    <h2>Send your feedback</h2>
+    <p>Your hearts, stars and notes are saved in this browser. Enter a name so we know whose taste this is, then send.</p>
+    <input id="fb-name" placeholder="Your name or nickname" maxlength="40">
+    <div class="row">
+      <button id="fb-send" class="primary">Send feedback</button>
+      <button id="fb-export">Download JSON</button>
+      <button id="fb-cancel">Cancel</button>
+    </div>
+    <p id="fb-status" class="meta"></p>
+  </div>
+</div>
+
+<form name="lazart-feedback" method="POST" data-netlify="true" netlify-honeypot="bot-field" hidden>
+  <input type="text" name="name"><input type="text" name="catalogue"><input type="text" name="bot-field"><textarea name="payload"></textarea>
+</form>
+<script src="app.js"></script>
+</body>
+</html>
