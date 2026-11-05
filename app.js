@@ -86,6 +86,7 @@
       const url = new URL(location.href);
       url.searchParams.delete('run'); url.searchParams.delete('wave');
       url.searchParams.delete('category');
+      url.searchParams.set('view', state.view);
       if (state.scope !== 'all') {
         const [key, value] = state.scope.split(':');
         url.searchParams.set(key, value);
@@ -101,16 +102,17 @@
   }
   function inView(img) {
     return inScope(img) && (state.view !== 'ready' || !!img.print_proof)
+      && (state.view !== 'selected' || img.status === 'selected')
       && (state.view !== 'requested' || (counts.get(img.id) || 0) > 0);
   }
-  function filtered() {
+  function reviewedByControls() {
     return allImages().filter((img) => {
-      if (!inView(img)) return false;
+      if (!inScope(img)) return false;
       if (state.category !== 'all' && img.category !== state.category) return false;
       if (state.lane !== 'all' && img.lane !== state.lane) return false;
       if (state.favsOnly && !(state.votes.reactions[img.id] || {}).love && !mine.has(img.id)) return false;
       return true;
-    }).sort((a, b) => (state.view === 'requested' ? counts.get(b.id) - counts.get(a.id) : 0) || a.rank - b.rank);
+    });
   }
 
   function renderCategories() {
@@ -139,7 +141,12 @@
   function renderGrid() {
     const grid = $('#grid');
     grid.innerHTML = '';
-    state.list = filtered();
+    const reviewed = reviewedByControls();
+    state.list = reviewed.filter(inView).sort((a, b) => (state.view === 'requested' ? counts.get(b.id) - counts.get(a.id) : 0) || a.rank - b.rank);
+    const subtitle = state.view === 'ready' ? state.list.length + ' ready for print'
+      : state.view === 'requested' ? state.list.length + ' requested artworks'
+      : reviewed.filter((img) => img.status === 'selected').length + ' AI-selected of ' + reviewed.length + ' reviewed on the wall';
+    $('#subtitle').textContent = state.data.title + ' · ' + subtitle;
     const frag = document.createDocumentFragment();
     state.list.forEach((img, i) => {
       const card = document.createElement('button');
@@ -313,9 +320,10 @@
     finally { btn.disabled = false; updateShareButton(); }
   }
   function setView(view, updateUrl) {
-    state.view = ['ready', 'requested'].includes(view) ? view : 'all';
+    const landingView = sharedHost && state.scope === 'all' ? 'selected' : 'all';
+    state.view = ['all', 'selected', 'ready', 'requested'].includes(view) ? view : landingView;
     const url = new URL(location.href);
-    if (state.view === 'all') url.searchParams.delete('view'); else url.searchParams.set('view', state.view);
+    url.searchParams.set('view', state.view);
     if (state.view === 'requested' && !sharedHost) {
       location.assign(sharedSite + url.search);
       return;
@@ -385,7 +393,6 @@
   loadCatalogue().then(async(data) => {
     state.data = data;
     loadVotes(data.catalogue);
-    $('#subtitle').textContent = data.title + ' · ' + data.count + ' images · highest AI scores first';
     const url = new URL(location.href);
     state.category = data.categories.some((c) => c.slug === url.searchParams.get('category')) ? url.searchParams.get('category') : 'all';
     setupRuns(); wire();
