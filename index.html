@@ -12,16 +12,18 @@
   <div class="brand"><span class="word">LAZART</span><span class="sub" id="subtitle">loading…</span></div>
   <div class="tools">
     <button id="btn-favs" class="chip" title="Show only images you loved">♥ <span id="fav-count">0</span></button>
-    <button id="btn-feedback" class="chip">Send feedback</button>
+    <button id="btn-feedback" class="chip">My feedback</button>
   </div>
 </header>
 <nav class="chips" id="lanes">
+  <select class="chip" id="run" aria-label="Filter by run"></select>
   <button class="chip on" data-lane="all">All lanes</button>
   <button class="chip" data-lane="safe">Safe</button>
   <button class="chip" data-lane="twist">Lazart twist</button>
 </nav>
 <nav class="chips" id="categories"></nav>
 <main id="grid" class="grid" aria-live="polite"></main>
+<p class="foot" id="empty" hidden>No images match these filters.</p>
 <p class="foot" id="foot"></p>
 
 <div id="viewer" class="viewer" hidden>
@@ -47,15 +49,17 @@
 
 <div id="sheet" class="sheet" hidden>
   <div class="sheet-card">
-    <h2>Send your feedback</h2>
-    <p>Your hearts, stars and notes are saved in this browser. Enter a name so we know whose taste this is, then send.</p>
+    <h2>My feedback</h2>
+    <p>Hearts, stars and notes stay in this browser. Download a backup to share your votes or move them to another device.</p>
     <input id="fb-name" placeholder="Your name or nickname" maxlength="40">
     <div class="row">
       <button id="fb-send" class="primary">Send feedback</button>
       <button id="fb-export">Download JSON</button>
+      <button id="fb-import">Restore JSON</button>
+      <input id="fb-file" type="file" accept=".json,application/json" hidden>
       <button id="fb-cancel">Cancel</button>
     </div>
-    <p id="fb-status" class="meta"></p>
+    <p id="fb-status" class="meta" role="status"></p>
   </div>
 </div>
 
