@@ -15,6 +15,11 @@
     <button id="btn-feedback" class="chip">My feedback</button>
   </div>
 </header>
+<nav class="chips" id="views" aria-label="Print curation">
+  <button class="chip on" data-view="all">All artwork</button>
+  <button class="chip" data-view="requested">Print requests</button>
+  <button class="chip" data-view="ready">Ready for print</button>
+</nav>
 <nav class="chips" id="lanes">
   <select class="chip" id="run" aria-label="Filter by run"></select>
   <button class="chip on" data-lane="all">All lanes</button>
@@ -41,6 +46,7 @@
           <button id="r-no" class="react" title="Not for us">✕</button>
         </div>
       </div>
+      <p id="v-print" class="meta" role="status"></p>
       <textarea id="v-note" placeholder="Note (optional): why, which room, what to change…"></textarea>
       <details><summary>Prompt &amp; provenance</summary><pre id="v-prompt"></pre></details>
     </figcaption>
@@ -50,10 +56,11 @@
 <div id="sheet" class="sheet" hidden>
   <div class="sheet-card">
     <h2>My feedback</h2>
-    <p>Hearts, stars and notes stay in this browser. Download a backup to share your votes or move them to another device.</p>
+    <p id="fb-info">Download a backup to share your votes or move them to another device.</p>
     <input id="fb-name" placeholder="Your name or nickname" maxlength="40">
     <div class="row">
       <button id="fb-send" class="primary">Send feedback</button>
+      <button id="fb-share" hidden>Share saved hearts as print requests</button>
       <button id="fb-export">Download JSON</button>
       <button id="fb-import">Restore JSON</button>
       <input id="fb-file" type="file" accept=".json,application/json" hidden>

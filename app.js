@@ -3,7 +3,45 @@
 (function () {
   'use strict';
   const $ = (s) => document.querySelector(s);
-  const state = { data: null, lane: 'all', scope: 'all', category: 'all', favsOnly: false, list: [], index: -1, votes: null, key: null };
+  const sharedHost = location.hostname === 'lazart-moss-gallery.netlify.app';
+  const publications = 'https://lokigod69.github.io/lazart-gallery/';
+  const sharedSite = 'https://lazart-moss-gallery.netlify.app/';
+  const endpoint = '/.netlify/functions/print-requests';
+  const state = { data: null, lane: 'all', scope: 'all', view: 'all', category: 'all', favsOnly: false, list: [], index: -1, votes: null, key: null };
+  let counts = new Map(), mine = new Set(), pending = new Set(), online = false, requestSequence = 0;
+  let printMessage = '';
+
+  async function syncRequests(ids) {
+    const sequence = ++requestSequence;
+    const options = { cache: 'no-store', credentials: 'same-origin' };
+    if (ids) Object.assign(options, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_ids: ids }) });
+    const response = await fetch(endpoint, options);
+    const data = await response.json();
+    if (!response.ok || data.version !== 1) throw new Error(data.error || 'Requests unavailable.');
+    if (sequence < requestSequence) return;
+    counts = new Map(data.requests.map((r) => [r.image_id, r.likes]));
+    mine = new Set(data.mine);
+    online = true;
+    updateHeartCount();
+    if ($('#viewer').hidden) { renderCategories(); renderGrid(); }
+    else renderPrintStatus(state.list[state.index]);
+  }
+
+  async function refreshRequests() {
+    if (!sharedHost || pending.size) return;
+    try { await syncRequests(); }
+    catch {
+      online = false;
+      if (!$('#viewer').hidden) renderPrintStatus(state.list[state.index]);
+      if (state.view === 'requested' && $('#viewer').hidden) renderGrid();
+    }
+  }
+
+  function updateHeartCount() {
+    const loved = new Set(Object.entries(state.votes.reactions).filter(([, r]) => r.love).map(([id]) => id));
+    for (const id of mine) loved.add(id);
+    $('#fav-count').textContent = loved.size;
+  }
 
   function loadVotes(catalogue) {
     state.key = 'lazart-votes:' + catalogue;
@@ -19,7 +57,7 @@
   function saveVotes() {
     state.votes.updated = new Date().toISOString();
     try { localStorage.setItem(state.key, JSON.stringify(state.votes)); localStorage.setItem('lazart-name', state.votes.name || ''); } catch (e) {}
-    $('#fav-count').textContent = Object.values(state.votes.reactions).filter((r) => r.love).length;
+    updateHeartCount();
   }
   function reaction(id) { return state.votes.reactions[id] || (state.votes.reactions[id] = {}); }
 
@@ -47,6 +85,7 @@
       state.scope = menu.value;
       const url = new URL(location.href);
       url.searchParams.delete('run'); url.searchParams.delete('wave');
+      url.searchParams.delete('category');
       if (state.scope !== 'all') {
         const [key, value] = state.scope.split(':');
         url.searchParams.set(key, value);
@@ -60,14 +99,18 @@
     const [kind, id] = state.scope.split(':');
     return img.run === id || (kind === 'wave' && img.run.startsWith(id + '-'));
   }
+  function inView(img) {
+    return inScope(img) && (state.view !== 'ready' || !!img.print_proof)
+      && (state.view !== 'requested' || (counts.get(img.id) || 0) > 0);
+  }
   function filtered() {
     return allImages().filter((img) => {
-      if (!inScope(img)) return false;
+      if (!inView(img)) return false;
       if (state.category !== 'all' && img.category !== state.category) return false;
       if (state.lane !== 'all' && img.lane !== state.lane) return false;
-      if (state.favsOnly && !(state.votes.reactions[img.id] || {}).love) return false;
+      if (state.favsOnly && !(state.votes.reactions[img.id] || {}).love && !mine.has(img.id)) return false;
       return true;
-    }).sort((a, b) => a.rank - b.rank);
+    }).sort((a, b) => (state.view === 'requested' ? counts.get(b.id) - counts.get(a.id) : 0) || a.rank - b.rank);
   }
 
   function renderCategories() {
@@ -77,12 +120,18 @@
       const b = document.createElement('button');
       b.className = 'chip' + (lazart ? ' lazart' : '') + (state.category === slug ? ' on' : '');
       b.textContent = title + (count != null ? ' · ' + count : '');
-      b.onclick = () => { state.category = slug; renderCategories(); renderGrid(); window.scrollTo({ top: 0 }); };
+      b.onclick = () => {
+        state.category = slug;
+        const url = new URL(location.href);
+        if (slug === 'all') url.searchParams.delete('category'); else url.searchParams.set('category', slug);
+        history.replaceState(null, '', url);
+        renderCategories(); renderGrid(); window.scrollTo({ top: 0 });
+      };
       nav.appendChild(b);
     };
-    mk('all', 'All', false, allImages().filter(inScope).length);
+    mk('all', 'All', false, allImages().filter(inView).length);
     for (const c of state.data.categories) {
-      const count = c.images.filter(inScope).length;
+      const count = c.images.filter(inView).length;
       if (count) mk(c.slug, c.title, c.lazart, count);
     }
   }
@@ -112,15 +161,22 @@
         card.appendChild(marks);
       }
       if (img.score) { const s = document.createElement('span'); s.className = 'score'; s.textContent = 'AI ' + img.score + '/5'; card.appendChild(s); }
+      if (img.print_proof || counts.has(img.id)) {
+        const p = document.createElement('span'); p.className = 'print-state';
+        p.textContent = [img.print_proof ? 'Ready for print' : '', counts.has(img.id) ? '♥ ' + counts.get(img.id) : ''].filter(Boolean).join(' · ');
+        card.appendChild(p);
+      }
       card.onclick = () => open(i);
       frag.appendChild(card);
     });
     grid.appendChild(frag);
     $('#empty').hidden = state.list.length > 0;
+    $('#empty').textContent = state.view === 'requested' && !online && sharedHost ? 'Loading shared print requests. Refresh to retry if the service is unavailable.' : 'No images match these filters.';
     $('#foot').textContent = state.list.length + ' images · ' + state.data.title + ' · built ' + state.data.built_at.slice(0, 16).replace('T', ' ');
   }
 
   function open(i) {
+    if (state.index !== i) printMessage = '';
     state.index = i;
     const img = state.list[i];
     if (!img) return;
@@ -142,7 +198,7 @@
       img.note ? 'AI note: ' + img.note : '',
     ].filter(Boolean).join('\n\n');
     const r = state.votes.reactions[img.id] || {};
-    $('#r-love').classList.toggle('on', !!r.love);
+    renderPrintStatus(img);
     $('#r-more').classList.toggle('on', !!r.more);
     $('#r-no').classList.toggle('on', !!r.no);
     $('#v-note').value = r.note || '';
@@ -150,8 +206,40 @@
   }
   function close() { $('#viewer').hidden = true; document.body.style.overflow = ''; renderGrid(); }
   function step(d) { const n = state.index + d; if (n >= 0 && n < state.list.length) open(n); }
+  function renderPrintStatus(img) {
+    if (!img) return;
+    const button = $('#r-love');
+    const local = !!state.votes.reactions[img.id]?.love;
+    button.classList.toggle('on', local || mine.has(img.id));
+    button.disabled = sharedHost && (pending.has(img.id) || mine.has(img.id));
+    button.textContent = !sharedHost ? '♥' : mine.has(img.id) ? '♥ Requested' : pending.has(img.id) ? 'Sending…' : '♥ Like for print';
+    button.title = sharedHost ? 'Send an anonymous shared print request' : 'Save a heart on this browser';
+    const lines = [];
+    if (img.print_proof) {
+      const proof = img.print_proof;
+      lines.push('Ready for print · ' + proof.width + '×' + proof.height + ' px · ' + proof.ppi + ' ppi ' + proof.profile + ' · paper sample ' + proof.physical_sample);
+    }
+    if (sharedHost && online) {
+      const n = counts.get(img.id) || 0;
+      lines.push(n + (n === 1 ? ' shared print request' : ' shared print requests'));
+      if (local && !mine.has(img.id)) lines.push('Saved locally. Like for print to share it.');
+    }
+    if (printMessage) lines.push(printMessage);
+    $('#v-print').textContent = lines.join(' · ');
+  }
+  async function likeForPrint(img) {
+    if (pending.has(img.id) || mine.has(img.id)) return;
+    pending.add(img.id); printMessage = ''; renderPrintStatus(img);
+    try {
+      if (!online) await syncRequests();
+      await syncRequests([img.id]);
+      const vote = reaction(img.id); vote.love = true; vote.no = false; saveVotes();
+    } catch (e) { printMessage = e.message || 'Please try again.'; }
+    finally { pending.delete(img.id); if (!$('#viewer').hidden) renderPrintStatus(state.list[state.index]); }
+  }
   function toggle(kind) {
     const img = state.list[state.index]; if (!img) return;
+    if (kind === 'love' && sharedHost) { likeForPrint(img); return; }
     const r = reaction(img.id);
     r[kind] = !r[kind];
     if (kind === 'no' && r.no) { r.love = false; r.more = false; }
@@ -187,7 +275,7 @@
       }
       state.votes.name ||= typeof backup.name === 'string' ? backup.name.slice(0, 40) : '';
       $('#fb-name').value = state.votes.name;
-      saveVotes(); renderGrid();
+      saveVotes(); renderGrid(); updateShareButton();
       $('#fb-status').textContent = 'Restored ' + count + ' reactions. Existing reactions are kept.';
     } catch (e) { $('#fb-status').textContent = 'Could not restore votes. ' + e.message; }
   }
@@ -206,6 +294,41 @@
     }
   }
 
+  function localUnshared() {
+    return allImages().filter((i) => state.votes.reactions[i.id]?.love && !mine.has(i.id)).map((i) => i.id);
+  }
+  function updateShareButton() {
+    const btn = $('#fb-share'), n = localUnshared().length;
+    btn.hidden = !sharedHost || !n;
+    btn.textContent = 'Share ' + n + ' saved ' + (n === 1 ? 'heart' : 'hearts') + ' as print requests';
+  }
+  async function shareSaved() {
+    const btn = $('#fb-share'); btn.disabled = true;
+    try {
+      await syncRequests();
+      const ids = localUnshared();
+      for (let i = 0; i < ids.length; i += 30) await syncRequests(ids.slice(i, i + 30));
+      $('#fb-status').textContent = 'Shared ' + ids.length + ' saved hearts as print requests.';
+    } catch (e) { $('#fb-status').textContent = e.message + ' You can retry safely.'; }
+    finally { btn.disabled = false; updateShareButton(); }
+  }
+  function setView(view, updateUrl) {
+    state.view = ['ready', 'requested'].includes(view) ? view : 'all';
+    const url = new URL(location.href);
+    if (state.view === 'all') url.searchParams.delete('view'); else url.searchParams.set('view', state.view);
+    if (state.view === 'requested' && !sharedHost) {
+      location.assign(sharedSite + url.search);
+      return;
+    }
+    // Retain a selected category when it has matches in this view.
+    if (state.category !== 'all' && !allImages().some((img) => img.category === state.category && inView(img))) {
+      state.category = 'all'; url.searchParams.delete('category');
+    }
+    if (updateUrl) history.replaceState(null, '', url);
+    document.querySelectorAll('#views [data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === state.view));
+    renderCategories(); renderGrid();
+  }
+
   function wire() {
     $('#close').onclick = close;
     $('#prev').onclick = () => step(-1);
@@ -215,7 +338,11 @@
     $('#r-no').onclick = () => toggle('no');
     $('#v-note').onchange = () => { const img = state.list[state.index]; if (!img) return; reaction(img.id).note = $('#v-note').value.trim(); saveVotes(); };
     $('#btn-favs').onclick = () => { state.favsOnly = !state.favsOnly; $('#btn-favs').classList.toggle('on', state.favsOnly); renderGrid(); };
-    $('#btn-feedback').onclick = () => { $('#fb-name').value = state.votes.name || ''; $('#fb-status').textContent = ''; $('#sheet').hidden = false; };
+    $('#btn-feedback').onclick = () => { $('#fb-name').value = state.votes.name || ''; $('#fb-status').textContent = ''; updateShareButton(); $('#sheet').hidden = false; };
+    $('#fb-share').onclick = shareSaved;
+    $('#fb-info').textContent = sharedHost
+      ? 'New hearts request a print publicly and anonymously. Stars and notes stay on this device until you share feedback. Restored hearts can be shared below.'
+      : 'Hearts, stars and notes stay in this browser. Download a backup to share them or restore it on the Netlify gallery.';
     $('#fb-cancel').onclick = () => { $('#sheet').hidden = true; };
     $('#fb-export').onclick = download;
     $('#fb-import').onclick = () => $('#fb-file').click();
@@ -223,7 +350,8 @@
     $('#fb-send').onclick = send;
     // Netlify injects form-name only when it has registered this form.
     $('#fb-send').hidden = !document.querySelector('form[name="lazart-feedback"] input[name="form-name"]');
-    document.querySelectorAll('#lanes .chip').forEach((b) => { b.onclick = () => { state.lane = b.dataset.lane; document.querySelectorAll('#lanes .chip').forEach((x) => x.classList.toggle('on', x === b)); renderGrid(); }; });
+    document.querySelectorAll('#views [data-view]').forEach((b) => { b.onclick = () => setView(b.dataset.view, true); });
+    document.querySelectorAll('#lanes [data-lane]').forEach((b) => { b.onclick = () => { state.lane = b.dataset.lane; document.querySelectorAll('#lanes [data-lane]').forEach((x) => x.classList.toggle('on', x === b)); renderGrid(); }; });
     document.addEventListener('keydown', (e) => {
       if ($('#viewer').hidden) return;
       if (e.target.matches('textarea,input') && e.key !== 'Escape') return;
@@ -236,10 +364,37 @@
     big.addEventListener('touchend', (e) => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1); }, { passive: true });
   }
 
-  fetch('data.json').then((r) => r.json()).then((data) => {
+  async function loadCatalogue() {
+    if (sharedHost) {
+      try {
+        const r = await fetch(publications + 'data.json?v=' + Math.floor(Date.now() / 60000), { signal: AbortSignal.timeout(12000) });
+        if (!r.ok) throw new Error('Publication unavailable');
+        const data = await r.json();
+        if (data.catalogue !== 'lazart-moss' || !data.categories?.length) throw new Error('Invalid publication');
+        for (const c of data.categories) for (const img of c.images) {
+          img.thumb = new URL(img.thumb, publications).href; img.full = new URL(img.full, publications).href;
+        }
+        return data;
+      } catch { /* Use the last reviewed snapshot bundled with the Netlify front end. */ }
+    }
+    const r = await fetch('data.json');
+    if (!r.ok) throw new Error('Gallery catalogue unavailable');
+    return r.json();
+  }
+
+  loadCatalogue().then(async(data) => {
     state.data = data;
     loadVotes(data.catalogue);
     $('#subtitle').textContent = data.title + ' · ' + data.count + ' images · highest AI scores first';
-    setupRuns(); wire(); renderCategories(); renderGrid(); saveVotes();
+    const url = new URL(location.href);
+    state.category = data.categories.some((c) => c.slug === url.searchParams.get('category')) ? url.searchParams.get('category') : 'all';
+    setupRuns(); wire();
+    if (url.searchParams.get('view') === 'requested' && sharedHost) await refreshRequests();
+    setView(url.searchParams.get('view'), false); saveVotes();
+    if (sharedHost) {
+      refreshRequests();
+      window.addEventListener('focus', refreshRequests);
+      setInterval(() => { if (!document.hidden) refreshRequests(); }, 30000);
+    }
   }).catch((e) => { $('#subtitle').textContent = 'Could not load data.json (' + e.message + ')'; });
 })();
