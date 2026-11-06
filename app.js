@@ -419,7 +419,12 @@
     if (element.hidden) return;
     const date = new Date(progress.published_at || state.data.built_at);
     const stamp = Number.isNaN(date.getTime()) ? state.data.built_at : date.toLocaleString();
-    element.textContent = 'Robert · ' + progress.generated + ' generated · ' + progress.reviewed + ' reviewed · ' + progress.selected + ' AI-selected · Snapshot published ' + stamp + '. Updates with gallery publications.';
+    const target = Number.isInteger(progress.qualified_concepts)
+      ? ' · ' + progress.qualified_concepts + ' concepts meet the 8/10+ target'
+        + (progress.recheck_concepts ? ' · ' + progress.recheck_concepts + ' for recheck' : '')
+        + (progress.rating_pending_concepts ? ' · ' + progress.rating_pending_concepts + ' awaiting rating' : '')
+        + (progress.audit_pending_concepts ? ' · ' + progress.audit_pending_concepts + ' awaiting audit' : '') : '';
+    element.textContent = 'Robert · ' + progress.generated + ' generated · ' + progress.reviewed + ' reviewed · ' + progress.selected + ' AI-selected to date' + target + ' · Snapshot published ' + stamp + '. Updates with gallery publications.';
   }
   function normalizeCatalogue(data) {
     data.collections ||= [{ slug: 'studio', title: 'Studio', categories: data.categories }];
