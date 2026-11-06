@@ -11,6 +11,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .word { font-weight: 800; letter-spacing: .22em; font-size: 15px; }
 .sub { color: var(--muted); font-size: 12px; }
 .tools { display: flex; gap: 8px; }
+.tools .x-factor { color: var(--text); text-decoration: none; align-self: center; }
+.tools .x-factor:hover { border-color: var(--accent); }
+@media (max-width: 420px) { .top { flex-wrap: wrap; } .tools { flex-wrap: wrap; } }
 .chips { display: flex; gap: 8px; overflow-x: auto; padding: 8px 16px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
 .chip { flex: 0 0 auto; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 13px; white-space: nowrap; }
