@@ -4,7 +4,7 @@
   'use strict';
   const $ = (s) => document.querySelector(s);
   const sharedHost = location.hostname === 'lazart-moss-gallery.netlify.app';
-  const publications = 'https://lokigod69.github.io/lazart-gallery/';
+  const publicationOrigins = ['https://raw.githubusercontent.com/lokigod69/lazart-gallery/main/', 'https://lokigod69.github.io/lazart-gallery/'];
   const sharedSite = 'https://lazart-moss-gallery.netlify.app/';
   const endpoint = '/.netlify/functions/print-requests';
   const state = { data: null, collection: 'all', lane: 'all', scope: 'all', view: 'all', category: 'all', favsOnly: false, list: [], index: -1, votes: null, key: null };
@@ -425,15 +425,46 @@
     data.collections ||= [{ slug: 'studio', title: 'Studio', categories: data.categories }];
     return data;
   }
-  async function publishedCatalogue() {
-    const r = await fetch(publications + 'data.json?v=' + Math.floor(Date.now() / 60000), { cache: 'no-store', signal: AbortSignal.timeout(12000) });
-    if (!r.ok) throw new Error('Publication unavailable');
-    const data = await r.json();
-    if (data.catalogue !== 'lazart-moss' || !data.categories?.length || !data.built_at) throw new Error('Invalid publication');
-    for (const c of data.categories) for (const img of c.images) {
-      img.thumb = new URL(img.thumb, publications).href; img.full = new URL(img.full, publications).href;
+  async function publishedCatalogue(current = null) {
+    for (const origin of publicationOrigins) {
+      try {
+        const options = () => ({ cache: 'no-store', signal: AbortSignal.timeout(12000) });
+        let release = null;
+        try {
+          const marker = await fetch(origin + 'release.json?v=' + Math.floor(Date.now() / 120000), options());
+          if (marker.ok) {
+            const value = await marker.json();
+            if (/^[a-f0-9]{64}$/.test(value.sha256) && Number.isFinite(Date.parse(value.built_at))) release = value;
+          }
+        } catch { /* Older publications have no marker; read their ordinary JSON. */ }
+        if (release && current?._releaseDigest === release.sha256) return current;
+        if (release && current && Date.parse(release.built_at) < Date.parse(current.built_at)) continue;
+        const r = await fetch(origin + 'data.json?v=' + (release?.sha256 || Math.floor(Date.now() / 120000)), options());
+        if (!r.ok) throw new Error('Publication unavailable');
+        let data;
+        if (release) {
+          const body = await r.text();
+          const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body))), (b) => b.toString(16).padStart(2, '0')).join('');
+          if (digest !== release.sha256) throw new Error('Publication is still propagating');
+          data = JSON.parse(body);
+          if (data.built_at !== release.built_at) throw new Error('Publication marker mismatch');
+          data._releaseDigest = digest;
+        } else data = await r.json();
+        if (data.catalogue !== 'lazart-moss' || !data.categories?.length || !Number.isFinite(Date.parse(data.built_at))) throw new Error('Invalid publication');
+        if (current && Date.parse(data.built_at) < Date.parse(current.built_at)) continue;
+        // The feed and BOTH derivative sizes must use the same accessible release origin.
+        for (const c of data.categories) for (const img of c.images) {
+          for (const key of ['thumb', 'full']) if (img[key]) {
+            const path = new URL(img[key], origin).pathname.match(/\/img\/[a-f0-9]{16}_[tf]\.webp$/)?.[0];
+            if (!path) throw new Error('Invalid publication image');
+            img[key] = new URL(path.slice(1), origin).href;
+          }
+        }
+        return normalizeCatalogue(data);
+      } catch { /* Try Pages, then retain the current or locally baked reviewed snapshot. */ }
     }
-    return normalizeCatalogue(data);
+    if (current) return current;
+    throw new Error('Publication unavailable');
   }
   function applyCatalogue(data) {
     state.data = data;
@@ -452,10 +483,10 @@
     catalogueCheckedAt = Date.now();
     cataloguePromise = (async() => {
       try {
-        const data = await publishedCatalogue();
         const current = deferredCatalogue || state.data;
+        const data = await publishedCatalogue(current);
         if (Date.parse(data.built_at) < Date.parse(current.built_at)) return;
-        if (data.built_at === current.built_at && data.count === current.count && JSON.stringify(data.progress) === JSON.stringify(current.progress)) return;
+        if (data === current || (!data._releaseDigest && data.built_at === current.built_at && data.count === current.count && JSON.stringify(data.progress) === JSON.stringify(current.progress))) return;
         deferredCatalogue = data; applyDeferredCatalogue();
       } catch { /* Retain the visible publication and all local reactions on transient failure. */ }
     })();
