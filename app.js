@@ -10,6 +10,7 @@
   const state = { data: null, collection: 'all', lane: 'all', scope: 'all', view: 'all', category: 'all', favsOnly: false, list: [], index: -1, votes: null, key: null };
   let counts = new Map(), mine = new Set(), pending = new Set(), online = false, requestSequence = 0;
   let printMessage = '';
+  let catalogueCheckedAt = Date.now(), cataloguePromise = null, deferredCatalogue = null;
 
   async function syncRequests(ids) {
     const sequence = ++requestSequence;
@@ -95,6 +96,7 @@
   }
   function setupRuns() {
     const menu = $('#run');
+    menu.innerHTML = '';
     const runs = Array.from(new Set(allImages().map((img) => img.run))).sort().reverse();
     menu.add(new Option('All runs', 'all'));
     const families = new Set(runs.map((run) => /^run-\d+/.exec(run)?.[0]).filter(Boolean));
@@ -171,6 +173,7 @@
   }
 
   function renderGrid() {
+    renderProgress();
     const grid = $('#grid');
     grid.innerHTML = '';
     const reviewed = reviewedByControls();
@@ -199,7 +202,8 @@
         if (r.no) marks.innerHTML += '<span>✕</span>';
         card.appendChild(marks);
       }
-      if (img.score) { const s = document.createElement('span'); s.className = 'score'; s.textContent = 'AI ' + img.score + '/5'; card.appendChild(s); }
+      if (img.score10 || img.score) { const s = document.createElement('span'); s.className = 'score'; s.textContent = aiScore(img); card.appendChild(s); }
+      if (img.editorial_recheck) { const flag = document.createElement('span'); flag.className = 'rating-state'; flag.textContent = 'Editorial recheck'; card.appendChild(flag); }
       if (img.print_proof || img.requires_typography || counts.has(img.id)) {
         const p = document.createElement('span'); p.className = 'print-state';
         p.textContent = [img.requires_typography ? 'Typography pending' : img.print_proof ? 'Ready for print' : '', counts.has(img.id) ? '♥ ' + counts.get(img.id) : ''].filter(Boolean).join(' · ');
@@ -228,13 +232,14 @@
     $('#v-meta').textContent = [
       img.run, img.categoryTitle, img.lane, img.w + '×' + img.h,
       img.seed != null ? 'seed ' + img.seed : '', img.profile,
-      img.score ? 'AI ' + img.score + '/5 · ' + img.status : '',
+      img.score10 || img.score ? aiScore(img) + ' · ' + img.status + (img.editorial_recheck ? ' · editorial recheck' : '') : '',
     ].filter(Boolean).join(' · ');
     $('#v-prompt').textContent = [
       img.prompt, 'Key: ' + img.key, 'Run: ' + img.run,
       img.loras?.length ? 'Adapters: ' + img.loras.join(', ') : '',
       img.parent ? 'Parent: ' + img.parent : '',
       img.note ? 'AI note: ' + img.note : '',
+      img.rating_note ? 'Ten-point review: ' + img.rating_note : '',
     ].filter(Boolean).join('\n\n');
     const r = state.votes.reactions[img.id] || {};
     renderPrintStatus(img);
@@ -243,7 +248,7 @@
     $('#v-note').value = r.note || '';
     if (state.list[i + 1]) { const pre = new Image(); pre.src = state.list[i + 1].full; }
   }
-  function close() { $('#viewer').hidden = true; document.body.style.overflow = ''; renderGrid(); }
+  function close() { $('#viewer').hidden = true; document.body.style.overflow = ''; if (!applyDeferredCatalogue()) renderGrid(); }
   function step(d) { const n = state.index + d; if (n >= 0 && n < state.list.length) open(n); }
   function renderPrintStatus(img) {
     if (!img) return;
@@ -275,7 +280,7 @@
       await syncRequests([img.id]);
       const vote = reaction(img.id); vote.love = true; vote.no = false; saveVotes();
     } catch (e) { printMessage = e.message || 'Please try again.'; }
-    finally { pending.delete(img.id); if (!$('#viewer').hidden) renderPrintStatus(state.list[state.index]); }
+    finally { pending.delete(img.id); if (!$('#viewer').hidden) renderPrintStatus(state.list[state.index]); else applyDeferredCatalogue(); }
   }
   function toggle(kind) {
     const img = state.list[state.index]; if (!img) return;
@@ -384,7 +389,7 @@
     $('#fb-info').textContent = sharedHost
       ? 'New hearts request a print publicly and anonymously. Stars and notes stay on this device until you share feedback. Restored hearts can be shared below.'
       : 'Hearts, stars and notes stay in this browser. Download a backup to share them or restore it on the Netlify gallery.';
-    $('#fb-cancel').onclick = () => { $('#sheet').hidden = true; };
+    $('#fb-cancel').onclick = () => { $('#sheet').hidden = true; applyDeferredCatalogue(); };
     $('#fb-export').onclick = download;
     $('#fb-import').onclick = () => $('#fb-file').click();
     $('#fb-file').onchange = () => { restore($('#fb-file').files[0]); $('#fb-file').value = ''; };
@@ -405,27 +410,70 @@
     big.addEventListener('touchend', (e) => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1); }, { passive: true });
   }
 
+  function aiScore(img) {
+    return Number.isInteger(img.score10) && img.score10 >= 1 && img.score10 <= 10 ? 'AI ' + img.score10 + '/10' : img.score ? 'AI ' + img.score + '/5' : '';
+  }
+  function renderProgress() {
+    const element = $('#collection-progress'), progress = state.data.progress?.robert;
+    element.hidden = state.collection !== 'robert' || !progress;
+    if (element.hidden) return;
+    const date = new Date(progress.published_at || state.data.built_at);
+    const stamp = Number.isNaN(date.getTime()) ? state.data.built_at : date.toLocaleString();
+    element.textContent = 'Robert · ' + progress.generated + ' generated · ' + progress.reviewed + ' reviewed · ' + progress.selected + ' AI-selected · Snapshot published ' + stamp + '. Updates with gallery publications.';
+  }
+  function normalizeCatalogue(data) {
+    data.collections ||= [{ slug: 'studio', title: 'Studio', categories: data.categories }];
+    return data;
+  }
+  async function publishedCatalogue() {
+    const r = await fetch(publications + 'data.json?v=' + Math.floor(Date.now() / 60000), { cache: 'no-store', signal: AbortSignal.timeout(12000) });
+    if (!r.ok) throw new Error('Publication unavailable');
+    const data = await r.json();
+    if (data.catalogue !== 'lazart-moss' || !data.categories?.length || !data.built_at) throw new Error('Invalid publication');
+    for (const c of data.categories) for (const img of c.images) {
+      img.thumb = new URL(img.thumb, publications).href; img.full = new URL(img.full, publications).href;
+    }
+    return normalizeCatalogue(data);
+  }
+  function applyCatalogue(data) {
+    state.data = data;
+    // Rebuild only run options; current filters and all reactions keep their identities.
+    const scope = state.scope, category = state.category;
+    setupRuns(); state.scope = scope; $('#run').value = scope; state.category = category;
+    renderCollections(); renderCategories(); renderGrid(); updateHeartCount();
+  }
+  function applyDeferredCatalogue() {
+    if (!deferredCatalogue || !$('#viewer').hidden || !$('#sheet').hidden || pending.size) return false;
+    const data = deferredCatalogue; deferredCatalogue = null; applyCatalogue(data); return true;
+  }
+  async function refreshCatalogue(awakened = false) {
+    const elapsed = Date.now() - catalogueCheckedAt;
+    if (!sharedHost || document.hidden || cataloguePromise || elapsed < (awakened ? 15000 : 120000)) return;
+    catalogueCheckedAt = Date.now();
+    cataloguePromise = (async() => {
+      try {
+        const data = await publishedCatalogue();
+        const current = deferredCatalogue || state.data;
+        if (Date.parse(data.built_at) < Date.parse(current.built_at)) return;
+        if (data.built_at === current.built_at && data.count === current.count && JSON.stringify(data.progress) === JSON.stringify(current.progress)) return;
+        deferredCatalogue = data; applyDeferredCatalogue();
+      } catch { /* Retain the visible publication and all local reactions on transient failure. */ }
+    })();
+    try { await cataloguePromise; } finally { cataloguePromise = null; }
+  }
   async function loadCatalogue() {
     if (sharedHost) {
       try {
-        const r = await fetch(publications + 'data.json?v=' + Math.floor(Date.now() / 60000), { signal: AbortSignal.timeout(12000) });
-        if (!r.ok) throw new Error('Publication unavailable');
-        const data = await r.json();
-        if (data.catalogue !== 'lazart-moss' || !data.categories?.length) throw new Error('Invalid publication');
-        for (const c of data.categories) for (const img of c.images) {
-          img.thumb = new URL(img.thumb, publications).href; img.full = new URL(img.full, publications).href;
-        }
-        return data;
+        return await publishedCatalogue();
       } catch { /* Use the last reviewed snapshot bundled with the Netlify front end. */ }
     }
     const r = await fetch('data.json');
     if (!r.ok) throw new Error('Gallery catalogue unavailable');
-    return r.json();
+    return normalizeCatalogue(await r.json());
   }
 
   loadCatalogue().then(async(data) => {
     state.data = data;
-    state.data.collections ||= [{ slug: 'studio', title: 'Studio', categories: data.categories }];
     loadVotes(data.catalogue);
     const url = new URL(location.href);
     if (data.collections.some((c) => c.slug === url.searchParams.get('collection'))) state.collection = url.searchParams.get('collection');
@@ -436,8 +484,10 @@
     setView(url.searchParams.get('view'), false); saveVotes();
     if (sharedHost) {
       refreshRequests();
-      window.addEventListener('focus', refreshRequests);
-      setInterval(() => { if (!document.hidden) refreshRequests(); }, 30000);
+      const awaken = () => { if (!document.hidden) { refreshRequests(); refreshCatalogue(true); } };
+      window.addEventListener('focus', awaken);
+      document.addEventListener('visibilitychange', awaken);
+      setInterval(() => { if (!document.hidden) { refreshRequests(); refreshCatalogue(); } }, 30000);
     }
   }).catch((e) => { $('#subtitle').textContent = 'Could not load data.json (' + e.message + ')'; });
 })();
