@@ -7,7 +7,7 @@
   const publications = 'https://lokigod69.github.io/lazart-gallery/';
   const sharedSite = 'https://lazart-moss-gallery.netlify.app/';
   const endpoint = '/.netlify/functions/print-requests';
-  const state = { data: null, lane: 'all', scope: 'all', view: 'all', category: 'all', favsOnly: false, list: [], index: -1, votes: null, key: null };
+  const state = { data: null, collection: 'all', lane: 'all', scope: 'all', view: 'all', category: 'all', favsOnly: false, list: [], index: -1, votes: null, key: null };
   let counts = new Map(), mine = new Set(), pending = new Set(), online = false, requestSequence = 0;
   let printMessage = '';
 
@@ -63,8 +63,35 @@
 
   function allImages() {
     const out = [];
-    for (const c of state.data.categories) for (const img of c.images) out.push(Object.assign({ categoryTitle: c.title }, img));
+    for (const c of state.data.categories) for (const img of c.images) {
+      const collection = img.collection || (img.run.endsWith('-robert') ? 'robert' : 'studio');
+      const category = state.data.collections?.find((g) => g.slug === collection)?.categories.find((category) => category.slug === img.category);
+      out.push(Object.assign({ categoryTitle: category?.title || c.title, collection }, img));
+    }
     return out;
+  }
+  function categoryOptions() {
+    if (state.collection !== 'all') return state.data.collections.find((c) => c.slug === state.collection)?.categories || [];
+    const options = new Map(state.data.categories.map((c) => [c.slug, c]));
+    for (const group of state.data.collections) for (const c of group.categories) if (!options.has(c.slug)) options.set(c.slug, c);
+    return Array.from(options.values());
+  }
+  function renderCollections() {
+    const nav = $('#collections'); nav.innerHTML = '';
+    for (const group of [{ slug: 'all', title: 'All collections' }, ...state.data.collections]) {
+      const b = document.createElement('button');
+      b.className = 'chip' + (state.collection === group.slug ? ' on' : '');
+      b.textContent = group.title; b.setAttribute('aria-pressed', state.collection === group.slug);
+      b.onclick = () => {
+        state.collection = group.slug; state.category = 'all'; state.scope = 'all'; $('#run').value = 'all';
+        const url = new URL(location.href);
+        for (const key of ['category', 'run', 'wave']) url.searchParams.delete(key);
+        if (group.slug === 'all') url.searchParams.delete('collection'); else url.searchParams.set('collection', group.slug);
+        history.replaceState(null, '', url);
+        renderCollections(); renderCategories(); renderGrid();
+      };
+      nav.appendChild(b);
+    }
   }
   function setupRuns() {
     const menu = $('#run');
@@ -96,12 +123,13 @@
     };
   }
   function inScope(img) {
+    if (state.collection !== 'all' && img.collection !== state.collection) return false;
     if (state.scope === 'all') return true;
     const [kind, id] = state.scope.split(':');
     return img.run === id || (kind === 'wave' && img.run.startsWith(id + '-'));
   }
   function inView(img) {
-    return inScope(img) && (state.view !== 'ready' || !!img.print_proof)
+    return inScope(img) && (state.view !== 'ready' || (!!img.print_proof && !img.requires_typography))
       && (state.view !== 'selected' || img.status === 'selected')
       && (state.view !== 'requested' || (counts.get(img.id) || 0) > 0);
   }
@@ -121,6 +149,7 @@
     const mk = (slug, title, lazart, count) => {
       const b = document.createElement('button');
       b.className = 'chip' + (lazart ? ' lazart' : '') + (state.category === slug ? ' on' : '');
+      b.setAttribute('aria-pressed', state.category === slug);
       b.textContent = title + (count != null ? ' · ' + count : '');
       b.onclick = () => {
         state.category = slug;
@@ -131,10 +160,13 @@
       };
       nav.appendChild(b);
     };
-    mk('all', 'All', false, allImages().filter(inView).length);
-    for (const c of state.data.categories) {
-      const count = c.images.filter(inView).length;
-      if (count) mk(c.slug, c.title, c.lazart, count);
+    const images = allImages();
+    // Robert's brief tracks actual AI selections, including categories still awaiting their first selection.
+    const counted = (img) => state.collection === 'robert' ? inScope(img) && img.status === 'selected' : inView(img);
+    mk('all', state.collection === 'robert' ? 'All AI selections' : 'All', false, images.filter(counted).length);
+    for (const c of categoryOptions()) {
+      const count = images.filter((img) => img.category === c.slug && counted(img)).length;
+      if (count || state.collection === 'robert') mk(c.slug, c.title, c.lazart, count);
     }
   }
 
@@ -168,9 +200,9 @@
         card.appendChild(marks);
       }
       if (img.score) { const s = document.createElement('span'); s.className = 'score'; s.textContent = 'AI ' + img.score + '/5'; card.appendChild(s); }
-      if (img.print_proof || counts.has(img.id)) {
+      if (img.print_proof || img.requires_typography || counts.has(img.id)) {
         const p = document.createElement('span'); p.className = 'print-state';
-        p.textContent = [img.print_proof ? 'Ready for print' : '', counts.has(img.id) ? '♥ ' + counts.get(img.id) : ''].filter(Boolean).join(' · ');
+        p.textContent = [img.requires_typography ? 'Typography pending' : img.print_proof ? 'Ready for print' : '', counts.has(img.id) ? '♥ ' + counts.get(img.id) : ''].filter(Boolean).join(' · ');
         card.appendChild(p);
       }
       card.onclick = () => open(i);
@@ -222,9 +254,10 @@
     button.textContent = !sharedHost ? '♥' : mine.has(img.id) ? '♥ Requested' : pending.has(img.id) ? 'Sending…' : '♥ Like for print';
     button.title = sharedHost ? 'Send an anonymous shared print request' : 'Save a heart on this browser';
     const lines = [];
+    if (img.requires_typography) lines.push('Text-free design base · awaiting Robert’s typography');
     if (img.print_proof) {
       const proof = img.print_proof;
-      lines.push('Ready for print · ' + proof.width + '×' + proof.height + ' px · ' + proof.ppi + ' ppi ' + proof.profile + ' · paper sample ' + proof.physical_sample);
+      lines.push((img.requires_typography ? 'Design-base proof' : 'Ready for print') + ' · ' + proof.width + '×' + proof.height + ' px · ' + proof.ppi + ' ppi ' + proof.profile + ' · paper sample ' + proof.physical_sample);
     }
     if (sharedHost && online) {
       const n = counts.get(img.id) || 0;
@@ -329,7 +362,7 @@
       return;
     }
     // Retain a selected category when it has matches in this view.
-    if (state.category !== 'all' && !allImages().some((img) => img.category === state.category && inView(img))) {
+    if (state.collection !== 'robert' && state.category !== 'all' && !allImages().some((img) => img.category === state.category && inView(img))) {
       state.category = 'all'; url.searchParams.delete('category');
     }
     if (updateUrl) history.replaceState(null, '', url);
@@ -392,9 +425,12 @@
 
   loadCatalogue().then(async(data) => {
     state.data = data;
+    state.data.collections ||= [{ slug: 'studio', title: 'Studio', categories: data.categories }];
     loadVotes(data.catalogue);
     const url = new URL(location.href);
-    state.category = data.categories.some((c) => c.slug === url.searchParams.get('category')) ? url.searchParams.get('category') : 'all';
+    if (data.collections.some((c) => c.slug === url.searchParams.get('collection'))) state.collection = url.searchParams.get('collection');
+    state.category = categoryOptions().some((c) => c.slug === url.searchParams.get('category')) ? url.searchParams.get('category') : 'all';
+    renderCollections();
     setupRuns(); wire();
     if (url.searchParams.get('view') === 'requested' && sharedHost) await refreshRequests();
     setView(url.searchParams.get('view'), false); saveVotes();
