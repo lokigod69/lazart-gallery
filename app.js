@@ -204,9 +204,9 @@
       }
       if (img.score10 || img.score) { const s = document.createElement('span'); s.className = 'score'; s.textContent = aiScore(img); card.appendChild(s); }
       if (img.editorial_recheck) { const flag = document.createElement('span'); flag.className = 'rating-state'; flag.textContent = 'Editorial recheck'; card.appendChild(flag); }
-      if (img.print_proof || img.requires_typography || counts.has(img.id)) {
+      if (img.print_proof || img.requires_typography || img.concept_variant || counts.has(img.id)) {
         const p = document.createElement('span'); p.className = 'print-state';
-        p.textContent = [img.requires_typography ? 'Typography pending' : img.print_proof ? 'Ready for print' : '', counts.has(img.id) ? '♥ ' + counts.get(img.id) : ''].filter(Boolean).join(' · ');
+        p.textContent = [img.requires_typography ? 'Typography pending' : img.print_proof ? 'Ready for print' : '', img.concept_variant ? 'Composition variant · shared target credit' : '', counts.has(img.id) ? '♥ ' + counts.get(img.id) : ''].filter(Boolean).join(' · ');
         card.appendChild(p);
       }
       card.onclick = () => open(i);
@@ -260,6 +260,7 @@
     button.title = sharedHost ? 'Send an anonymous shared print request' : 'Save a heart on this browser';
     const lines = [];
     if (img.requires_typography) lines.push('Text-free design base · awaiting Robert’s typography');
+    if (img.concept_variant) lines.push('Composition variant · retained with its ratings, hearts and proofs; shares target credit with ' + img.concept_variant.keeper_concept.replace(/-/g, ' ') + '.');
     if (img.print_proof) {
       const proof = img.print_proof;
       lines.push((img.requires_typography ? 'Design-base proof' : 'Ready for print') + ' · ' + proof.width + '×' + proof.height + ' px · ' + proof.ppi + ' ppi ' + proof.profile + ' · paper sample ' + proof.physical_sample);
@@ -424,7 +425,8 @@
         + (progress.recheck_concepts ? ' · ' + progress.recheck_concepts + ' for recheck' : '')
         + (progress.rating_pending_concepts ? ' · ' + progress.rating_pending_concepts + ' awaiting rating' : '')
         + (progress.audit_pending_concepts ? ' · ' + progress.audit_pending_concepts + ' awaiting audit' : '') : '';
-    element.textContent = 'Robert · ' + progress.generated + ' generated · ' + progress.reviewed + ' reviewed · ' + progress.selected + ' AI-selected to date' + target + ' · Snapshot published ' + stamp + '. Updates with gallery publications.';
+    const variants = progress.variant_concepts ? ' · ' + progress.variant_concepts + ' retained composition variants share target credit' : '';
+    element.textContent = 'Robert · ' + progress.generated + ' generated · ' + progress.reviewed + ' reviewed · ' + progress.selected + ' AI-selected to date' + target + variants + ' · Snapshot published ' + stamp + '. Updates with gallery publications.';
   }
   function normalizeCatalogue(data) {
     data.collections ||= [{ slug: 'studio', title: 'Studio', categories: data.categories }];
@@ -444,7 +446,19 @@
         } catch { /* Older publications have no marker; read their ordinary JSON. */ }
         if (release && current?._releaseDigest === release.sha256) return current;
         if (release && current && Date.parse(release.built_at) < Date.parse(current.built_at)) continue;
-        const r = await fetch(origin + 'data.json?v=' + (release?.sha256 || Math.floor(Date.now() / 120000)), options());
+        // A query on a mutable filename does not identify immutable GitHub bytes.
+        // Only the exact digest-named relative path is allowed; never follow a
+        // marker-supplied host, traversal, query or arbitrary public JSON file.
+        const immutablePath = release?.catalogue_path;
+        if (immutablePath !== undefined && immutablePath !== 'catalogues/' + release.sha256 + '.json') throw new Error('Invalid publication path');
+        let r;
+        if (immutablePath) {
+          r = await fetch(origin + immutablePath, options());
+          if (!r.ok && r.status !== 404 && r.status !== 410) throw new Error('Publication unavailable');
+        }
+        // Old markers and expired immutable versions retain the legacy protocol.
+        // Its bytes must still match this marker; otherwise try another origin.
+        if (!r?.ok) r = await fetch(origin + 'data.json?v=' + (release?.sha256 || Math.floor(Date.now() / 120000)), options());
         if (!r.ok) throw new Error('Publication unavailable');
         let data;
         if (release) {
