@@ -12,16 +12,16 @@
   <div class="brand"><span class="word">LAZART</span><span class="sub" id="subtitle">loading…</span></div>
   <div class="tools">
     <a class="chip x-factor" href="https://lazart-moss-gallery.netlify.app/x-factor/">X Factor</a>
-    <button id="btn-favs" class="chip" title="Show only images you loved">♥ <span id="fav-count">0</span></button>
+    <button id="btn-favs" class="chip" title="Show only images you loved" aria-pressed="false">♥ <span id="fav-count">0</span></button>
     <button id="btn-feedback" class="chip">My feedback</button>
   </div>
 </header>
+<p id="vote-status" class="collection-progress meta" role="status" hidden></p>
 <nav class="chips" id="collections" aria-label="Art collections"></nav>
 <p id="collection-progress" class="collection-progress meta" role="status" hidden></p>
-<nav class="chips" id="views" aria-label="Print curation">
+<nav class="chips" id="views" aria-label="Gallery views">
   <button class="chip on" data-view="selected">AI selections</button>
   <button class="chip" data-view="all">All reviewed</button>
-  <button class="chip" data-view="requested">Print requests</button>
   <button class="chip" data-view="ready">Ready for print</button>
 </nav>
 <nav class="chips" id="lanes">
@@ -45,9 +45,9 @@
       <div class="caption-head">
         <div><strong id="v-title"></strong><span id="v-meta" class="meta"></span></div>
         <div class="reactions">
-          <button id="r-love" class="react" title="Love it">♥</button>
-          <button id="r-more" class="react" title="More like this">★</button>
-          <button id="r-no" class="react" title="Not for us">✕</button>
+          <button id="r-love" class="react" title="Like this image" aria-label="Like this image" aria-pressed="false">♡</button>
+          <button id="r-more" class="react" title="More like this" aria-label="More like this" aria-pressed="false">★</button>
+          <button id="r-no" class="react" title="Not for us" aria-label="Not for us" aria-pressed="false">✕</button>
         </div>
       </div>
       <p id="v-print" class="meta" role="status"></p>
@@ -60,23 +60,19 @@
 <div id="sheet" class="sheet" hidden>
   <div class="sheet-card">
     <h2>My feedback</h2>
-    <p id="fb-info">Download a backup to share your votes or move them to another device.</p>
-    <input id="fb-name" placeholder="Your name or nickname" maxlength="40">
+    <p id="fb-info">Hearts, stars and notes are saved in this browser. Tap a heart again to unlike. Download JSON and send the file to Michael to share your feedback.</p>
+    <p id="fb-count" role="status"></p>
+    <input id="fb-name" placeholder="Your name or nickname" aria-label="Your name or nickname" maxlength="40">
     <div class="row">
-      <button id="fb-send" class="primary">Send feedback</button>
-      <button id="fb-share" hidden>Share saved hearts as print requests</button>
-      <button id="fb-export">Download JSON</button>
+      <button id="fb-export" class="primary">Download JSON</button>
       <button id="fb-import">Restore JSON</button>
       <input id="fb-file" type="file" accept=".json,application/json" hidden>
-      <button id="fb-cancel">Cancel</button>
+      <button id="fb-cancel">Done</button>
     </div>
     <p id="fb-status" class="meta" role="status"></p>
   </div>
 </div>
 
-<form name="lazart-feedback" method="POST" data-netlify="true" netlify-honeypot="bot-field" hidden>
-  <input type="text" name="name"><input type="text" name="catalogue"><input type="text" name="bot-field"><textarea name="payload"></textarea>
-</form>
-<script src="app.js"></script>
+<script src="app.js?v=personal-feedback-20261110"></script>
 </body>
 </html>
