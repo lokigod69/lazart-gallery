@@ -1,41 +1,74 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>LAZART gallery</title>
-<link rel="stylesheet" href="style.css">
+<meta name="theme-color" content="#0e0e10">
+<link rel="icon" href="favicon.ico?v=apex-ink-v1" sizes="any">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=apex-ink-v1">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=apex-ink-v1">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=apex-ink-v1">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=apex-ink-v1">
+<link rel="manifest" href="site.webmanifest?v=apex-ink-v1">
+<meta property="og:title" content="LAZART gallery">
+<meta property="og:image" content="https://gallery.lazart.art/brand/lazart-social-1200x630.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<link rel="stylesheet" href="brand.css?v=apex-ink-v1">
+<script>try{const theme=localStorage.getItem('lazart-theme');if(theme==='light'||theme==='dark')document.documentElement.dataset.theme=theme;}catch{}</script>
+<link rel="stylesheet" href="style.css?v=categories-20261110">
 </head>
 <body>
+<a class="skip-link" href="#gallery-content">Skip to artwork</a>
 <header class="top">
-  <div class="brand"><span class="word">LAZART</span><span class="sub" id="subtitle">loading…</span></div>
+  <button class="brand" id="btn-home" aria-label="LAZART — all artwork"><span class="brand-art"><svg class="brand-mark" viewBox="0 0 500 508" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M0 0H68V390L252 0H260L500 508H0Z M174 277H332L256 127Z M150 323H298L127 455H77Z M353 323L418 455H222Z"/></svg><svg class="brand-wordmark" viewBox="0 0 715 100" role="img" aria-label="LAZART" focusable="false"><g transform="translate(0 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H23V78H72V100H0Z"/></g><g transform="translate(100 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 100L46 0H62L108 100H82L72 78H36L26 100Z M44 58H64L54 35Z"/></g><g transform="translate(236 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H88V20L34 78H88V100H0V80L54 22H0Z"/><path d="M9 51H79V63H9Z"/></g><g transform="translate(352 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 100L46 0H62L108 100H82L72 78H36L26 100Z M44 58H64L54 35Z"/></g><g transform="translate(488 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H57C83 0 100 16 100 38C100 53 91 66 77 70L104 100H74L48 73H24V100H0Z M24 22V51H55C68 51 76 47 76 37C76 27 68 22 55 22Z"/></g><g transform="translate(620 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H95V22H59V100H36V22H0Z"/></g></svg></span></button>
   <div class="tools">
-    <a class="chip x-factor" href="https://lazart-moss-gallery.netlify.app/x-factor/">X Factor</a>
-    <button id="btn-favs" class="chip" title="Show only images you loved" aria-pressed="false">♥ <span id="fav-count">0</span></button>
-    <button id="btn-feedback" class="chip">My feedback</button>
+    <button id="btn-favs" class="text-button" aria-pressed="false"><span data-i18n="myLikes">My likes</span> ♡ <span id="fav-count">0</span></button>
+    <button id="btn-feedback" class="text-button">My selection</button>
+    <button id="btn-theme" class="text-button" aria-pressed="false">Light</button>
+    <div class="languages" role="group" aria-label="Language / Sprache">
+      <button class="text-button" data-language="de" title="Deutsch" aria-label="Deutsch" aria-pressed="false">DE</button>
+      <button class="text-button" data-language="en" title="English" aria-label="English" aria-pressed="true">EN</button>
+    </div>
+    <details class="more-menu"><summary aria-label="More">···</summary><a href="https://gallery.lazart.art/x-factor/">X Factor ↗</a></details>
   </div>
 </header>
-<p id="vote-status" class="collection-progress meta" role="status" hidden></p>
-<nav class="chips" id="collections" aria-label="Art collections"></nav>
-<p id="collection-progress" class="collection-progress meta" role="status" hidden></p>
-<nav class="chips" id="views" aria-label="Gallery views">
-  <button class="chip on" data-view="selected">AI selections</button>
-  <button class="chip" data-view="all">All reviewed</button>
-  <button class="chip" data-view="ready">Ready for print</button>
-</nav>
-<nav class="chips" id="lanes">
-  <select class="chip" id="run" aria-label="Filter by run"></select>
-  <button class="chip on" data-lane="all">All lanes</button>
-  <button class="chip" data-lane="safe">Safe</button>
-  <button class="chip" data-lane="twist">Lazart twist</button>
-</nav>
-<nav class="chips" id="categories" aria-label="Categories"></nav>
-<main id="grid" class="grid" aria-live="polite"></main>
-<p class="foot" id="empty" hidden>No images match these filters.</p>
-<p class="foot" id="foot"></p>
+<main id="gallery-content" class="gallery-content">
+  <div class="browse-controls">
+    <details id="category-menu" class="category-menu">
+      <summary id="category-trigger"><span id="category-label">All artwork</span><span aria-hidden="true">⌄</span></summary>
+      <div class="category-popover">
+        <label class="sr-only" for="category-search" data-i18n="searchCategories">Search categories</label>
+        <input id="category-search" type="search" placeholder="Search categories" autocomplete="off">
+        <div id="categories" role="group" aria-label="Categories"></div>
+        <p id="category-no-results" class="meta" data-i18n="noCategories" hidden>No matching categories.</p>
+      </div>
+    </details>
+    <button id="btn-filters" class="control" aria-expanded="false" aria-controls="filters-panel"><span data-i18n="filters">Filters</span><span id="filter-count"></span></button>
+    <span id="subtitle" class="meta" role="status">Loading artwork…</span>
+  </div>
+  <section id="filters-panel" class="filters-panel" aria-label="Artwork filters" hidden>
+    <div class="filter-intro"><p data-i18n="filterHelp">Combine filters across every category.</p><button id="clear-filters" class="text-button" data-i18n="clearFilters">Clear filters</button></div>
+    <div id="tag-options" class="tag-options"></div>
+  </section>
+  <div id="active-filters" class="active-filters" aria-label="Active filters" hidden></div>
+  <div class="category-heading"><h1 id="category-title">All artwork</h1><p id="category-description"></p></div>
+  <section id="shortlist-section" aria-labelledby="shortlist-title" hidden>
+    <div class="section-heading"><h2 id="shortlist-title" data-i18n="shortlist">Release shortlist</h2><span id="shortlist-count" class="shortlist-count"></span></div>
+    <div id="shortlist-grid" class="grid"></div>
+  </section>
+  <section id="candidates-section" aria-labelledby="candidates-title">
+    <div class="section-heading candidates-heading"><h2 id="candidates-title" data-i18n="candidates">Artwork</h2><button id="toggle-candidates" class="text-button" aria-controls="grid" aria-expanded="true" hidden>See all candidates</button></div>
+    <div id="grid" class="grid"></div>
+  </section>
+  <div class="empty-state" id="empty" hidden><h2 id="empty-title">No images match these filters.</h2><p id="empty-description"></p><button id="empty-reset" class="control" data-i18n="clearFilters">Clear filters</button></div>
+  <p id="vote-status" class="meta vote-status" role="status" hidden></p>
+  <p class="foot" id="foot"></p>
+</main>
 
-<div id="viewer" class="viewer" hidden>
+<div id="viewer" class="viewer" role="dialog" aria-modal="true" aria-labelledby="v-title" hidden>
   <button class="close" id="close" aria-label="Close">×</button>
   <button class="nav prev" id="prev" aria-label="Previous">‹</button>
   <button class="nav next" id="next" aria-label="Next">›</button>
@@ -52,27 +85,35 @@
       </div>
       <p id="v-print" class="meta" role="status"></p>
       <textarea id="v-note" placeholder="Note (optional): why, which room, what to change…"></textarea>
-      <details><summary>Prompt &amp; provenance</summary><pre id="v-prompt"></pre></details>
+      <details><summary data-i18n="details">Prompt &amp; provenance</summary><pre id="v-prompt"></pre></details>
     </figcaption>
   </figure>
 </div>
 
-<div id="sheet" class="sheet" hidden>
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="fb-title" hidden>
   <div class="sheet-card">
-    <h2>My feedback</h2>
-    <p id="fb-info">Hearts, stars and notes are saved in this browser. Tap a heart again to unlike. Download JSON and send the file to Michael to share your feedback.</p>
+    <button id="fb-close" class="sheet-close" type="button" aria-label="Close">×</button>
+    <h2 id="fb-title">What should we call you?</h2>
+    <p id="fb-info">Choose a nickname once. Your likes save online automatically, and this browser remembers you.</p>
     <p id="fb-count" role="status"></p>
     <input id="fb-name" placeholder="Your name or nickname" aria-label="Your name or nickname" maxlength="40">
+    <label id="include-existing-row" class="check-row" hidden><input id="include-existing" type="checkbox" checked><span id="include-existing-text"></span></label>
     <div class="row">
-      <button id="fb-export" class="primary">Download JSON</button>
-      <button id="fb-import">Restore JSON</button>
-      <input id="fb-file" type="file" accept=".json,application/json" hidden>
+      <button id="profile-save" class="primary">Start liking</button>
+      <button id="profile-submit" class="primary" hidden>Finish selection</button>
       <button id="fb-cancel">Done</button>
     </div>
+    <p id="profile-submitted" class="meta"></p>
     <p id="fb-status" class="meta" role="status"></p>
+    <details id="feedback-backup"><summary data-i18n="backup">Backup / restore</summary><div class="row">
+      <button id="fb-export" data-i18n="download">Download backup</button>
+      <button id="fb-import" data-i18n="restore">Restore my backup</button>
+      <input id="fb-file" type="file" accept=".json,application/json" hidden>
+    </div></details>
   </div>
 </div>
 
-<script src="app.js?v=personal-feedback-20261110"></script>
+<script src="reviewer-client.js?v=profiles-20261110"></script>
+<script src="app.js?v=categories-20261110"></script>
 </body>
 </html>

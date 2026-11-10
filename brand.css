@@ -1,0 +1,10 @@
+/* Apex Ink v1: local to the brand so gallery theme/layout work can evolve independently. */
+.brand-art { display: inline-flex; align-items: center; gap: 10px; color: inherit; line-height: 1; }
+.brand-art .brand-mark { display: block; width: 34px; height: 35px; flex: none; }
+.brand-art .brand-wordmark { display: block; width: 125px; height: 18px; flex: none; }
+.brand-art + .sub { margin-top: 4px; }
+@media (max-width: 380px) {
+  .brand-art { gap: 8px; }
+  .brand-art .brand-mark { width: 30px; height: 31px; }
+  .brand-art .brand-wordmark { width: 112px; height: 16px; }
+}
