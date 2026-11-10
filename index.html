@@ -18,13 +18,14 @@
 <meta property="og:image:height" content="630">
 <link rel="stylesheet" href="brand.css?v=apex-ink-v1">
 <script>try{const theme=localStorage.getItem('lazart-theme');if(theme==='light'||theme==='dark')document.documentElement.dataset.theme=theme;}catch{}</script>
-<link rel="stylesheet" href="style.css?v=categories-20261110">
+<link rel="stylesheet" href="style.css?v=like-order-20261111">
 </head>
 <body>
 <a class="skip-link" href="#gallery-content">Skip to artwork</a>
 <header class="top">
   <button class="brand" id="btn-home" aria-label="LAZART — all artwork"><span class="brand-art"><svg class="brand-mark" viewBox="0 0 500 508" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M0 0H68V390L252 0H260L500 508H0Z M174 277H332L256 127Z M150 323H298L127 455H77Z M353 323L418 455H222Z"/></svg><svg class="brand-wordmark" viewBox="0 0 715 100" role="img" aria-label="LAZART" focusable="false"><g transform="translate(0 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H23V78H72V100H0Z"/></g><g transform="translate(100 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 100L46 0H62L108 100H82L72 78H36L26 100Z M44 58H64L54 35Z"/></g><g transform="translate(236 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H88V20L34 78H88V100H0V80L54 22H0Z"/><path d="M9 51H79V63H9Z"/></g><g transform="translate(352 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 100L46 0H62L108 100H82L72 78H36L26 100Z M44 58H64L54 35Z"/></g><g transform="translate(488 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H57C83 0 100 16 100 38C100 53 91 66 77 70L104 100H74L48 73H24V100H0Z M24 22V51H55C68 51 76 47 76 37C76 27 68 22 55 22Z"/></g><g transform="translate(620 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H95V22H59V100H36V22H0Z"/></g></svg></span></button>
   <div class="tools">
+    <a id="owner-curate" class="text-button" href="/curate" hidden>Edit selection</a>
     <button id="btn-favs" class="text-button" aria-pressed="false"><span data-i18n="myLikes">My likes</span> ♡ <span id="fav-count">0</span></button>
     <button id="btn-feedback" class="text-button">My selection</button>
     <button id="btn-theme" class="text-button" aria-pressed="false">Light</button>
@@ -46,7 +47,7 @@
         <p id="category-no-results" class="meta" data-i18n="noCategories" hidden>No matching categories.</p>
       </div>
     </details>
-    <button id="btn-filters" class="control" aria-expanded="false" aria-controls="filters-panel"><span data-i18n="filters">Filters</span><span id="filter-count"></span></button>
+    <button id="btn-filters" class="control" aria-expanded="false" aria-controls="filters-panel"><span data-i18n="filters">Tag filters</span><span id="filter-count"></span></button>
     <span id="subtitle" class="meta" role="status">Loading artwork…</span>
   </div>
   <section id="filters-panel" class="filters-panel" aria-label="Artwork filters" hidden>
@@ -55,12 +56,22 @@
   </section>
   <div id="active-filters" class="active-filters" aria-label="Active filters" hidden></div>
   <div class="category-heading"><h1 id="category-title">All artwork</h1><p id="category-description"></p></div>
+  <section id="category-coverage" aria-labelledby="coverage-title" hidden>
+    <div class="section-heading"><h2 id="coverage-title" data-i18n="browseCategories">Browse by category</h2></div>
+    <div id="coverage-grid" class="coverage-grid"></div>
+  </section>
   <section id="shortlist-section" aria-labelledby="shortlist-title" hidden>
-    <div class="section-heading"><h2 id="shortlist-title" data-i18n="shortlist">Release shortlist</h2><span id="shortlist-count" class="shortlist-count"></span></div>
+    <div class="section-heading"><h2 id="shortlist-title" data-i18n="shortlist">Category shortlist</h2><span id="shortlist-count" class="shortlist-count"></span></div>
+    <p class="meta shortlist-help" data-i18n="shortlistHelp">Hearts save your personal likes and contribute to the gallery total. Only the gallery owner selects the final shortlist.</p>
     <div id="shortlist-grid" class="grid"></div>
   </section>
   <section id="candidates-section" aria-labelledby="candidates-title">
-    <div class="section-heading candidates-heading"><h2 id="candidates-title" data-i18n="candidates">Artwork</h2><button id="toggle-candidates" class="text-button" aria-controls="grid" aria-expanded="true" hidden>See all candidates</button></div>
+    <div class="section-heading candidates-heading"><h2 id="candidates-title" data-i18n="candidates">Artwork</h2><div class="candidate-tools">
+      <label id="candidate-order-control" hidden><span data-i18n="order">Order</span>
+        <select id="candidate-order"><option value="suggested" data-i18n="suggestedOrder">Suggested</option><option value="likes" data-i18n="likedOrder">Most liked</option></select>
+      </label>
+      <button id="toggle-candidates" class="text-button" aria-controls="grid" aria-expanded="true" hidden>See all candidates</button>
+    </div></div>
     <div id="grid" class="grid"></div>
   </section>
   <div class="empty-state" id="empty" hidden><h2 id="empty-title">No images match these filters.</h2><p id="empty-description"></p><button id="empty-reset" class="control" data-i18n="clearFilters">Clear filters</button></div>
@@ -79,7 +90,7 @@
         <div><strong id="v-title"></strong><span id="v-meta" class="meta"></span></div>
         <div class="reactions">
           <button id="r-love" class="react" title="Like this image" aria-label="Like this image" aria-pressed="false">♡</button>
-          <button id="r-more" class="react" title="More like this" aria-label="More like this" aria-pressed="false">★</button>
+          <span id="v-like-total" class="like-total" hidden></span>
           <button id="r-no" class="react" title="Not for us" aria-label="Not for us" aria-pressed="false">✕</button>
         </div>
       </div>
@@ -114,6 +125,6 @@
 </div>
 
 <script src="reviewer-client.js?v=profiles-20261110"></script>
-<script src="app.js?v=categories-20261110"></script>
+<script src="app.js?v=like-order-20261111"></script>
 </body>
 </html>

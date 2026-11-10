@@ -7,6 +7,7 @@
     location.hostname === 'lazart-gallery.pages.dev' || location.hostname.endsWith('.lazart-gallery.pages.dev') ||
     (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === '8195');
   const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname) && location.pathname.startsWith('/gallery/');
+  if ($('#owner-curate')) $('#owner-curate').hidden = !localPreview;
   const publicationOrigins = ['https://raw.githubusercontent.com/lokigod69/lazart-gallery/main/', 'https://lokigod69.github.io/lazart-gallery/'];
   const endpoint = '/.netlify/functions/print-requests';
   const state = { data: null, category: 'all', tags: new Set(), favsOnly: false, candidatesExpanded: false, list: [], index: -1, votes: null, key: null };
@@ -22,6 +23,20 @@
   };
   Object.assign(words.en, { myLikes: 'My likes', allArtwork: 'All artwork', filters: 'Filters', clearFilters: 'Clear filters', searchCategories: 'Search categories', noCategories: 'No matching categories.', filterHelp: 'Combine filters across every category. Images must match every selected filter.', shortlist: 'Release shortlist', shortlistLabel: 'Shortlist', candidates: 'Artwork', moreCandidates: 'More in this category', allCandidates: 'More artwork', showCandidates: 'Show {n} other candidates', hideCandidates: 'Hide other candidates', chosen: '{n} of {target} chosen', chosenAll: '{n} chosen', shortlistFiltered: '{n} shown · {total} chosen', noArt: 'This category is taking shape.', noArtHelp: 'There are no candidates here yet. Explore another category while we build this collection.', emptyHelp: 'Try removing a filter or choose another category.', allDescription: 'Find the pieces you would love to live with.', uncategorizedDescription: 'Good possibilities, still finding their place.', light: 'Light', dark: 'Dark', switchLight: 'Switch to light theme', switchDark: 'Switch to dark theme', removeFilter: 'Remove {tag} filter', imageUnavailable: 'Preview unavailable', selectedCategory: 'Selected category', exploreAll: 'Explore all artwork' });
   Object.assign(words.de, { myLikes: 'Meine Likes', allArtwork: 'Alle Kunstwerke', filters: 'Filter', clearFilters: 'Filter löschen', searchCategories: 'Kategorien suchen', noCategories: 'Keine passende Kategorie.', filterHelp: 'Filter gelten für jede Kategorie. Bilder müssen zu allen gewählten Filtern passen.', shortlist: 'Auswahl für den Shop', shortlistLabel: 'Vorauswahl', candidates: 'Kunstwerke', moreCandidates: 'Mehr in dieser Kategorie', allCandidates: 'Weitere Kunstwerke', showCandidates: '{n} weitere Kandidaten zeigen', hideCandidates: 'Weitere Kandidaten ausblenden', chosen: '{n} von {target} ausgewählt', chosenAll: '{n} ausgewählt', shortlistFiltered: '{n} sichtbar · {total} ausgewählt', noArt: 'Diese Kategorie entsteht gerade.', noArtHelp: 'Hier gibt es noch keine Kandidaten. Entdecke inzwischen eine andere Kategorie.', emptyHelp: 'Entferne einen Filter oder wähle eine andere Kategorie.', allDescription: 'Finde die Bilder, mit denen du leben möchtest.', uncategorizedDescription: 'Gute Möglichkeiten, deren Platz noch offen ist.', light: 'Hell', dark: 'Dunkel', switchLight: 'Zum hellen Design wechseln', switchDark: 'Zum dunklen Design wechseln', removeFilter: 'Filter {tag} entfernen', imageUnavailable: 'Vorschau nicht verfügbar', selectedCategory: 'Gewählte Kategorie', exploreAll: 'Alle Kunstwerke entdecken' });
+  Object.assign(words.en, {
+    filters: 'Tag filters', browseCategories: 'Browse by category', shortlist: 'Category shortlist',
+    shortlistLabel: 'Selected', suggestedLabel: 'Suggested', shortlistProgress: '{n} of {target} shortlisted',
+    suggestedCount: '{n} suggested', candidateCount: '{n} candidates', communityLikes: '{n} total likes',
+    order: 'Order', suggestedOrder: 'Suggested', likedOrder: 'Most liked',
+    shortlistHelp: 'Hearts save your personal likes and contribute to the gallery total. Only the gallery owner selects the final shortlist.',
+  });
+  Object.assign(words.de, {
+    filters: 'Schlagwortfilter', browseCategories: 'Nach Kategorie stöbern', shortlist: 'Vorauswahl der Kategorie',
+    shortlistLabel: 'Ausgewählt', suggestedLabel: 'Vorgeschlagen', shortlistProgress: '{n} von {target} in der Vorauswahl',
+    suggestedCount: '{n} vorgeschlagen', candidateCount: '{n} Kandidaten', communityLikes: '{n} Likes insgesamt',
+    order: 'Reihenfolge', suggestedOrder: 'Empfohlen', likedOrder: 'Meiste Likes',
+    shortlistHelp: 'Mit einem Herz speicherst du dein Like und erhöhst die Gesamtzahl der Galerie. Die endgültige Vorauswahl trifft nur der Galeriebesitzer.',
+  });
   const categoryCopy = {
     'cult-poster': ['Cinema for films that only exist in your imagination.', 'Kino für Filme, die nur in deiner Fantasie existieren.'],
     surrealism: ['Familiar things. Unexpected worlds.', 'Vertraute Dinge. Unerwartete Welten.'],
@@ -42,6 +57,40 @@
   };
   function t(key, values = {}) { return Object.entries(values).reduce((text, [key, value]) => text.replaceAll('{' + key + '}', value), words[language][key] || words.en[key] || key); }
   let catalogueCheckedAt = Date.now(), cataloguePromise = null, deferredCatalogue = null;
+  let likeTotals = null, likeTotalsRequest = null, likeTotalsCheckedAt = 0, candidateOrder = 'suggested';
+
+  function renderLikeTotal(element, id) {
+    const total = likeTotals?.[id] ?? 0;
+    element.hidden = !likeTotals;
+    element.textContent = String(total);
+    element.title = t('communityLikes', { n: total });
+    element.setAttribute('aria-label', element.title);
+  }
+  function refreshLikeTotals() {
+    if (!sharedHost || legacyHost || document.hidden || likeTotalsRequest ||
+      (likeTotalsCheckedAt && Date.now() - likeTotalsCheckedAt < 2000)) return;
+    likeTotalsCheckedAt = Date.now();
+    likeTotalsRequest = (async () => {
+      try {
+        const response = await fetch('/api/like-totals', { cache: 'no-store', signal: AbortSignal.timeout(12000) });
+        if (!response.ok) return;
+        const { counts } = await response.json();
+        if (!counts || typeof counts !== 'object' || Array.isArray(counts)) return;
+        const entries = Object.entries(counts).filter(([id, n]) => /^[a-f0-9]{16}$/.test(id) && Number.isSafeInteger(n) && n >= 0);
+        const changed = !likeTotals || entries.length !== Object.keys(likeTotals).length || entries.some(([id, n]) => likeTotals[id] !== n);
+        likeTotals = Object.fromEntries(entries);
+        document.querySelectorAll('[data-like-total]').forEach(element => renderLikeTotal(element, element.dataset.likeTotal));
+        $('#candidate-order-control').hidden = state.favsOnly || $('#grid').hidden || !$('#grid').children.length;
+        if (changed && candidateOrder === 'likes' && $('#viewer').hidden && $('#sheet').hidden) {
+          const focused = document.activeElement?.dataset;
+          renderGrid();
+          if (focused?.heartId) $('[data-heart-id="' + focused.heartId + '"]')?.focus();
+          if (focused?.openId) $('[data-open-id="' + focused.openId + '"]')?.focus();
+        }
+      } catch { /* Keep the last available totals and let personal likes sync independently. */ }
+      finally { likeTotalsRequest = null; }
+    })();
+  }
 
   function renderProfile() {
     if (!$('#profile-save')) return;
@@ -83,11 +132,11 @@
     document.querySelectorAll('[data-i18n]').forEach(element => { element.textContent = t(element.dataset.i18n); });
     $('#fb-name').placeholder = t('nickname'); $('#fb-name').setAttribute('aria-label', t('nickname'));
     $('#v-note').placeholder = t('note');
-    for (const [id, key] of [['close', 'close'], ['fb-close', 'close'], ['prev', 'prev'], ['next', 'next'], ['r-more', 'more'], ['r-no', 'no']]) {
+    for (const [id, key] of [['close', 'close'], ['fb-close', 'close'], ['prev', 'prev'], ['next', 'next'], ['r-no', 'no']]) {
       $('#' + id).setAttribute('aria-label', t(key)); $('#' + id).title = t(key);
     }
     setTheme(theme);
-    if (state.data) { renderCategories(); renderTags(); refreshFeedbackUI(); }
+    if (state.data) { renderCategories(); renderCoverage(); renderTags(); refreshFeedbackUI(); }
   }
   function showProfile(action = null) {
     profileReturnFocus = { element: document.activeElement, heartId: document.activeElement?.dataset?.heartId };
@@ -200,7 +249,9 @@
   function tagLabel(tag) { return language === 'de' ? tag.label_de || tag.label : tag.label; }
   function hasCategory(img, category = state.category) { return category === 'all' || img.shop.category_ids.includes(category); }
   function isPick(img, category = state.category) { return category === 'all' ? img.shop.pick_category_ids.length > 0 : img.shop.pick_category_ids.includes(category); }
+  function isSuggested(img, category = state.category) { return category !== 'all' && img.shop.suggested_category_ids.includes(category); }
   function conceptCount(images) { return new Set(images.map(img => img.shop.concept_group || img.id)).size; }
+  function categoryTarget(category) { return category?.target || state.data.shop.target_per_category || 30; }
   function syncUrl() {
     const url = new URL(location.href);
     for (const key of ['collection', 'run', 'wave', 'lane', 'view']) url.searchParams.delete(key);
@@ -209,7 +260,8 @@
     history.replaceState(null, '', url);
   }
   function chooseCategory(slug) {
-    state.category = slug; state.candidatesExpanded = false;
+    state.category = slug; state.candidatesExpanded = false; state.favsOnly = false;
+    $('#btn-favs').classList.toggle('on', false); $('#btn-favs').setAttribute('aria-pressed', false);
     $('#category-menu').open = false; $('#category-search').value = '';
     syncUrl(); renderCategories(); renderGrid(); $('#category-trigger').focus();
     window.scrollTo({ top: 0 });
@@ -234,6 +286,33 @@
     $('#category-no-results').hidden = nav.children.length > 0;
     $('#category-search').placeholder = t('searchCategories');
     $('#category-search').setAttribute('aria-label', t('searchCategories'));
+  }
+  function renderCoverage() {
+    const grid = $('#coverage-grid'); grid.innerHTML = '';
+    const images = allImages().sort((a, b) => (a.rank || 0) - (b.rank || 0));
+    for (const category of state.data.shop.categories) {
+      const candidates = images.filter(img => hasCategory(img, category.slug));
+      const selected = candidates.filter(img => isPick(img, category.slug));
+      const suggested = candidates.filter(img => isSuggested(img, category.slug));
+      const cover = selected[0] || suggested[0] || candidates[0];
+      const tile = document.createElement('button'); tile.type = 'button'; tile.className = 'coverage-tile';
+      tile.dataset.category = category.slug; tile.onclick = () => chooseCategory(category.slug);
+      const preview = document.createElement('span'); preview.className = 'coverage-preview';
+      if (cover?.thumb) {
+        const image = document.createElement('img');
+        image.alt = ''; image.loading = 'lazy'; image.decoding = 'async';
+        image.onerror = () => { image.hidden = true; };
+        image.src = cover.thumb; preview.appendChild(image);
+      }
+      const label = document.createElement('span'); label.className = 'coverage-label';
+      const title = document.createElement('strong'); title.textContent = categoryLabel(category);
+      const count = document.createElement('span'); count.className = 'meta';
+      count.textContent = t('shortlistProgress', { n: conceptCount([...selected, ...suggested]), target: categoryTarget(category) });
+      const total = document.createElement('span'); total.className = 'meta';
+      total.textContent = t('candidateCount', { n: candidates.length });
+      label.appendChild(title); label.appendChild(count); label.appendChild(total);
+      tile.appendChild(preview); tile.appendChild(label); grid.appendChild(tile);
+    }
   }
   function setTag(slug) {
     if (state.tags.has(slug)) state.tags.delete(slug); else state.tags.add(slug);
@@ -265,7 +344,7 @@
     $('#btn-theme').setAttribute('aria-label', t(theme === 'dark' ? 'switchLight' : 'switchDark'));
     $('#btn-theme').setAttribute('aria-pressed', theme === 'light');
   }
-  function makeCard(img, index, picked) {
+  function makeCard(img, index, status) {
     const card = document.createElement('article'); card.className = 'card' + (img.w > img.h ? ' wide' : ''); card.dataset.imageId = img.id;
     const art = document.createElement('button'); art.type = 'button'; art.className = 'artwork-open'; art.setAttribute('aria-label', img.title || img.key || 'Artwork');
     art.dataset.openId = img.id; art.onclick = () => open(index);
@@ -274,7 +353,10 @@
     pic.onload = () => pic.classList.add('loaded');
     pic.onerror = () => { pic.classList.add('failed'); art.classList.add('image-failed'); art.setAttribute('data-error', t('imageUnavailable')); };
     art.appendChild(pic); card.appendChild(art);
-    if (picked) { const label = document.createElement('span'); label.className = 'shortlist-label'; label.textContent = t('shortlistLabel'); card.appendChild(label); }
+    if (status) {
+      const label = document.createElement('span'); label.className = 'shortlist-label' + (status === 'suggestedLabel' ? ' suggested' : '');
+      label.textContent = t(status); card.appendChild(label);
+    }
     const caption = document.createElement('div'); caption.className = 'card-caption';
     const title = document.createElement('button'); title.type = 'button'; title.className = 'card-title'; title.textContent = img.title || img.key || 'Artwork'; title.onclick = () => open(index);
     const heart = document.createElement('button'); heart.type = 'button'; heart.className = 'card-heart'; heart.dataset.heartId = img.id;
@@ -285,28 +367,49 @@
       if (reviewer && !reviewer.profile) showProfile({ id: img.id, kind: 'love' });
       else changeReaction(img.id, 'love');
     };
-    caption.appendChild(title); caption.appendChild(heart); card.appendChild(caption); return card;
+    const reactions = document.createElement('div'); reactions.className = 'card-reactions';
+    const total = document.createElement('span'); total.className = 'like-total'; total.dataset.likeTotal = img.id;
+    renderLikeTotal(total, img.id);
+    reactions.appendChild(heart); reactions.appendChild(total);
+    caption.appendChild(title); caption.appendChild(reactions); card.appendChild(caption); return card;
   }
   function renderGrid() {
     const categoryImages = allImages().filter(img => hasCategory(img));
     const images = categoryImages.filter(img => [...state.tags].every(tag => img.shop.tag_ids.includes(tag)) && (!state.favsOnly || state.votes.reactions[img.id]?.love)).sort((a,b) => (a.rank || 0) - (b.rank || 0));
-    const picks = images.filter(img => isPick(img)), candidates = images.filter(img => !isPick(img));
-    const split = picks.length > 0 && !state.favsOnly;
+    const picks = images.filter(img => isPick(img));
+    const suggestions = images.filter(img => !isPick(img) && isSuggested(img));
+    const order = new Map((state.data.shop.shortlists?.[state.category]?.artwork_ids || []).map((id, index) => [id, index]));
+    const byShortlistOrder = (a, b) => (order.get(a.id) ?? order.size) - (order.get(b.id) ?? order.size);
+    const shortlistImages = [...picks.sort(byShortlistOrder), ...suggestions.sort(byShortlistOrder)];
+    const candidates = images.filter(img => !isPick(img) && !isSuggested(img));
+    const split = shortlistImages.length > 0 && !state.favsOnly;
     const expanded = !split || state.candidatesExpanded;
-    state.list = split ? [...picks, ...(expanded ? candidates : [])] : images;
+    const candidateImages = split ? candidates : images;
+    if (!state.favsOnly && candidateOrder === 'likes' && likeTotals) {
+      candidateImages.sort((a, b) => (likeTotals[b.id] || 0) - (likeTotals[a.id] || 0));
+    }
+    state.list = split ? [...shortlistImages, ...(expanded ? candidateImages : [])] : candidateImages;
     const grid = $('#grid'), shortlist = $('#shortlist-grid'); grid.innerHTML = ''; shortlist.innerHTML = '';
-    state.list.forEach((img, index) => { const picked = isPick(img); (split && picked ? shortlist : grid).appendChild(makeCard(img, index, picked)); });
+    state.list.forEach((img, index) => {
+      const status = isPick(img) ? 'shortlistLabel' : isSuggested(img) ? 'suggestedLabel' : '';
+      (split && status ? shortlist : grid).appendChild(makeCard(img, index, status));
+    });
+    $('#category-coverage').hidden = state.category !== 'all' || state.favsOnly || state.tags.size > 0;
     $('#shortlist-section').hidden = !split;
     const totalPicks = conceptCount(categoryImages.filter(img => isPick(img)));
     const shownPicks = conceptCount(picks);
     const category = categoryOptions().find(c => c.slug === state.category);
-    $('#shortlist-count').textContent = state.tags.size && shownPicks !== totalPicks ? t('shortlistFiltered', { n: shownPicks, total: totalPicks }) : state.category === 'all' ? t('chosenAll', { n: totalPicks }) : t('chosen', { n: totalPicks, target: category?.target || state.data.shop.target_per_category || 30 });
+    const suggestedCount = conceptCount(suggestions);
+    const selectedLabel = state.tags.size && shownPicks !== totalPicks ? t('shortlistFiltered', { n: shownPicks, total: totalPicks }) :
+      state.category === 'all' ? t('chosenAll', { n: totalPicks }) : t('chosen', { n: totalPicks, target: categoryTarget(category) });
+    $('#shortlist-count').textContent = [selectedLabel, suggestedCount ? t('suggestedCount', { n: suggestedCount }) : ''].filter(Boolean).join(' · ');
     $('#candidates-section').hidden = split && !candidates.length;
     $('#candidates-title').textContent = t(split ? state.category === 'all' ? 'allCandidates' : 'moreCandidates' : 'candidates');
     $('#candidates-title').classList.toggle('sr-only', !split);
     $('#toggle-candidates').hidden = !split || !candidates.length;
     $('#toggle-candidates').textContent = t(expanded ? 'hideCandidates' : 'showCandidates', { n: candidates.length });
     $('#toggle-candidates').setAttribute('aria-expanded', expanded); grid.hidden = !expanded;
+    $('#candidate-order-control').hidden = !likeTotals || !expanded || state.favsOnly || !candidateImages.length;
     $('#category-title').textContent = state.favsOnly ? t('myLikes') : category ? categoryLabel(category) : t('allArtwork');
     $('#category-description').textContent = state.favsOnly ? t('likes', { n: images.length }) : state.category === 'all' ? t('allDescription') : state.category === 'uncategorized' ? t('uncategorizedDescription') : categoryCopy[state.category]?.[language === 'de' ? 1 : 0] || '';
     $('#subtitle').textContent = t('images', { n: images.length });
@@ -343,8 +446,6 @@
     ].filter(Boolean).join('\n\n');
     const r = state.votes.reactions[img.id] || {};
     renderPrintStatus(img);
-    $('#r-more').classList.toggle('on', !!r.more);
-    $('#r-more').setAttribute('aria-pressed', !!r.more);
     $('#r-no').classList.toggle('on', !!r.no);
     $('#r-no').setAttribute('aria-pressed', !!r.no);
     $('#v-note').value = r.note || '';
@@ -367,6 +468,8 @@
     button.title = t(local ? 'unlike' : 'like');
     button.setAttribute('aria-label', button.title);
     button.setAttribute('aria-pressed', local);
+    const total = $('#v-like-total'); total.dataset.likeTotal = img.id;
+    renderLikeTotal(total, img.id);
     const lines = [];
     if (img.requires_typography) lines.push('Text-free design base · awaiting Robert’s typography');
     if (img.concept_variant) lines.push('Composition variant · retained with its ratings, hearts and proofs; shares target credit with ' + img.concept_variant.keeper_concept.replace(/-/g, ' ') + '.');
@@ -386,13 +489,13 @@
     const viewerOpen = !$('#viewer').hidden, currentId = state.list[state.index]?.id;
     const r = reaction(id);
     r[kind] = !r[kind];
-    if (kind === 'no' && r.no) { r.love = false; r.more = false; }
-    if ((kind === 'love' || kind === 'more') && r[kind]) r.no = false;
+    if (kind === 'no' && r.no) r.love = false;
+    if (kind === 'love' && r.love) r.no = false;
     saveVotes();
     const index = state.index;
     const patch = { [kind]: r[kind] };
-    if (kind === 'no' && r.no) Object.assign(patch, { love: false, more: false });
-    if ((kind === 'love' || kind === 'more') && r[kind]) patch.no = false;
+    if (kind === 'no' && r.no) patch.love = false;
+    if (kind === 'love' && r.love) patch.no = false;
     if (reviewer?.profile) reviewer.queue({ [id]: patch });
     renderGrid();
     if (viewerOpen) {
@@ -451,7 +554,7 @@
   function wire() {
     $('#close').onclick = close;
     $('#prev').onclick = () => step(-1); $('#next').onclick = () => step(1);
-    $('#r-love').onclick = () => toggle('love'); $('#r-more').onclick = () => toggle('more'); $('#r-no').onclick = () => toggle('no');
+    $('#r-love').onclick = () => toggle('love'); $('#r-no').onclick = () => toggle('no');
     $('#v-note').onchange = () => {
       const img = state.list[state.index]; if (!img) return;
       const note = $('#v-note').value.trim().slice(0, 10000); reaction(img.id).note = note; saveVotes();
@@ -478,6 +581,7 @@
     };
     $('#clear-filters').onclick = clearFilters;
     $('#toggle-candidates').onclick = () => { state.candidatesExpanded = !state.candidatesExpanded; renderGrid(); $('#toggle-candidates').focus(); };
+    $('#candidate-order').onchange = event => { candidateOrder = event.target.value; renderGrid(); };
     $('#btn-favs').onclick = () => {
       state.favsOnly = !state.favsOnly;
       $('#btn-favs').classList.toggle('on', state.favsOnly); $('#btn-favs').setAttribute('aria-pressed', state.favsOnly);
@@ -498,7 +602,7 @@
       trapFocus(event, $('#viewer'));
       if (event.target.matches('textarea,input') && event.key !== 'Escape') return;
       if (event.key === 'Escape') close(); else if (event.key === 'ArrowRight') step(1); else if (event.key === 'ArrowLeft') step(-1);
-      else if (event.key.toLowerCase() === 'l') toggle('love'); else if (event.key.toLowerCase() === 'm') toggle('more'); else if (event.key.toLowerCase() === 'x') toggle('no');
+      else if (event.key.toLowerCase() === 'l') toggle('love'); else if (event.key.toLowerCase() === 'x') toggle('no');
     });
     let x0 = null; const big = $('#big');
     big.addEventListener('touchstart', event => { x0 = event.touches[0].clientX; }, { passive: true });
@@ -516,11 +620,28 @@
     data.shop.tags ||= []; data.shop.aliases ||= {};
     const known = new Set([...data.shop.categories.map(c => c.slug), 'uncategorized']);
     const tags = new Set(data.shop.tags.map(tag => tag.slug));
+    const shortlists = Object.entries(data.shop.shortlists || {}).filter(([id, entry]) =>
+      id !== 'uncategorized' && known.has(id) && ['ai', 'owner'].includes(entry?.source) && Array.isArray(entry.artwork_ids));
+    if (data.shop.shortlists) data.shop.shortlists = Object.fromEntries(shortlists);
+    const shortlistMembers = new Map(shortlists.map(([id, entry]) => [id, new Set(entry.artwork_ids)]));
     for (const category of data.categories) for (const img of category.images) {
       const mapped = data.shop.aliases[img.category] || img.category;
       const shop = img.shop || {};
       const categoryIds = [...new Set((shop.category_ids || [mapped]).filter(id => known.has(id)))];
-      img.shop = { ...shop, category_ids: categoryIds.length ? categoryIds : ['uncategorized'], tag_ids: [...new Set((shop.tag_ids || []).filter(id => tags.has(id)))], pick_category_ids: [...new Set((shop.pick_category_ids || []).filter(id => categoryIds.includes(id) && id !== 'uncategorized'))] };
+      const picks = data.shop.shortlists ? [] :
+        [...new Set((shop.pick_category_ids || []).filter(id => categoryIds.includes(id) && id !== 'uncategorized'))];
+      const suggestions = [];
+      for (const [id, entry] of shortlists) {
+        if (!categoryIds.includes(id) || !shortlistMembers.get(id).has(img.id)) continue;
+        if (entry.source === 'owner') picks.push(id);
+        else suggestions.push(id);
+      }
+      img.shop = {
+        ...shop, category_ids: categoryIds.length ? categoryIds : ['uncategorized'],
+        tag_ids: [...new Set((shop.tag_ids || []).filter(id => tags.has(id)))],
+        pick_category_ids: picks,
+        suggested_category_ids: suggestions,
+      };
     }
     return data;
   }
@@ -580,7 +701,7 @@
   }
   function applyCatalogue(data) {
     state.data = data;
-    renderCategories(); renderTags(); renderGrid(); updateHeartCount();
+    renderCategories(); renderCoverage(); renderTags(); renderGrid(); updateHeartCount();
   }
   function applyDeferredCatalogue() {
     if (!deferredCatalogue || !$('#viewer').hidden || !$('#sheet').hidden) return false;
@@ -630,12 +751,12 @@
     state.category = !requested || requested === 'all' ? 'all' : categoryOptions().some(c => c.slug === category) ? category : 'uncategorized';
     const knownTags = new Set(data.shop.tags.map(tag => tag.slug));
     state.tags = new Set((url.searchParams.get('tags') || '').split(',').filter(tag => knownTags.has(tag)));
-    wire(); syncUrl(); renderCategories(); renderTags(); renderGrid(); saveVotes(); setLanguage(language, languageExplicit);
+    wire(); syncUrl(); saveVotes(); setLanguage(language, languageExplicit);
     if (window.LazartReviewer && sharedHost) {
       reviewer = new window.LazartReviewer({
         endpoint: legacyHost ? '/.netlify/functions/reviewer-profiles' : '/api/reviewer-profiles',
         getVotes: () => state.votes, persist: saveVotes,
-        onChange: () => { updateHeartCount(); renderProfile(); },
+        onChange: () => { updateHeartCount(); renderProfile(); if (reviewer?.status === 'saved') refreshLikeTotals(); },
         onLanguage: value => setLanguage(value),
         backup: votes => { try { localStorage.setItem(state.key + ':before-online:' + Date.now(), JSON.stringify(votes)); } catch {} },
       });
@@ -649,11 +770,12 @@
       $('#vote-status').hidden = false; $('#vote-status').textContent = t('cloudLink');
     }
     if (sharedHost || localPreview) {
+      refreshLikeTotals();
       if (!reviewer) recoverLegacyHearts();
-      const awaken = () => { if (!document.hidden) { refreshCatalogue(true); if (reviewer) reviewer.refresh().then(refreshFeedbackUI); } };
+      const awaken = () => { if (!document.hidden) { refreshCatalogue(true); refreshLikeTotals(); if (reviewer) reviewer.refresh().then(refreshFeedbackUI); } };
       window.addEventListener('focus', awaken);
       document.addEventListener('visibilitychange', awaken);
-      setInterval(() => { if (!document.hidden) { refreshCatalogue(); if (reviewer && $('#viewer').hidden && $('#sheet').hidden) reviewer.refresh().then(refreshFeedbackUI); } }, 30000);
+      setInterval(() => { if (!document.hidden) { refreshCatalogue(); refreshLikeTotals(); if (reviewer && $('#viewer').hidden && $('#sheet').hidden) reviewer.refresh().then(refreshFeedbackUI); } }, 30000);
     }
   }).catch((e) => { $('#subtitle').textContent = 'Could not load data.json (' + e.message + ')'; });
 })();
