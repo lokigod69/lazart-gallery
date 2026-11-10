@@ -294,7 +294,8 @@
       const candidates = images.filter(img => hasCategory(img, category.slug));
       const selected = candidates.filter(img => isPick(img, category.slug));
       const suggested = candidates.filter(img => isSuggested(img, category.slug));
-      const cover = selected[0] || suggested[0] || candidates[0];
+      const firstChoice = state.data.shop.shortlists?.[category.slug]?.artwork_ids?.[0];
+      const cover = candidates.find(img => img.id === firstChoice) || selected[0] || suggested[0] || candidates[0];
       const tile = document.createElement('button'); tile.type = 'button'; tile.className = 'coverage-tile';
       tile.dataset.category = category.slug; tile.onclick = () => chooseCategory(category.slug);
       const preview = document.createElement('span'); preview.className = 'coverage-preview';
