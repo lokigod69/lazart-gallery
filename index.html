@@ -18,14 +18,15 @@
 <meta property="og:image:height" content="630">
 <link rel="stylesheet" href="brand.css?v=apex-ink-v1">
 <script>try{const theme=localStorage.getItem('lazart-theme');if(theme==='light'||theme==='dark')document.documentElement.dataset.theme=theme;}catch{}</script>
-<link rel="stylesheet" href="style.css?v=like-order-20261111">
+<link rel="stylesheet" href="style.css?v=online-curation-20261111">
 </head>
 <body>
 <a class="skip-link" href="#gallery-content">Skip to artwork</a>
 <header class="top">
   <button class="brand" id="btn-home" aria-label="LAZART — all artwork"><span class="brand-art"><svg class="brand-mark" viewBox="0 0 500 508" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M0 0H68V390L252 0H260L500 508H0Z M174 277H332L256 127Z M150 323H298L127 455H77Z M353 323L418 455H222Z"/></svg><svg class="brand-wordmark" viewBox="0 0 715 100" role="img" aria-label="LAZART" focusable="false"><g transform="translate(0 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H23V78H72V100H0Z"/></g><g transform="translate(100 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 100L46 0H62L108 100H82L72 78H36L26 100Z M44 58H64L54 35Z"/></g><g transform="translate(236 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H88V20L34 78H88V100H0V80L54 22H0Z"/><path d="M9 51H79V63H9Z"/></g><g transform="translate(352 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 100L46 0H62L108 100H82L72 78H36L26 100Z M44 58H64L54 35Z"/></g><g transform="translate(488 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H57C83 0 100 16 100 38C100 53 91 66 77 70L104 100H74L48 73H24V100H0Z M24 22V51H55C68 51 76 47 76 37C76 27 68 22 55 22Z"/></g><g transform="translate(620 0)" fill="currentColor"><path fill-rule="evenodd" d="M0 0H95V22H59V100H36V22H0Z"/></g></svg></span></button>
   <div class="tools">
-    <a id="owner-curate" class="text-button" href="/curate" hidden>Edit selection</a>
+    <button id="btn-curate" data-i18n="curate" class="text-button" hidden>Curate</button>
+    <a id="owner-curate" class="text-button" href="https://gallery.lazart.art/?curate=1" hidden>Curate online</a>
     <button id="btn-favs" class="text-button" aria-pressed="false"><span data-i18n="myLikes">My likes</span> ♡ <span id="fav-count">0</span></button>
     <button id="btn-feedback" class="text-button">My selection</button>
     <button id="btn-theme" class="text-button" aria-pressed="false">Light</button>
@@ -56,6 +57,20 @@
   </section>
   <div id="active-filters" class="active-filters" aria-label="Active filters" hidden></div>
   <div class="category-heading"><h1 id="category-title">All artwork</h1><p id="category-description"></p></div>
+  <section id="curation-panel" class="curation-panel" aria-label="Online curation" hidden>
+    <form id="curation-login" hidden>
+      <label for="curation-code" data-i18n="curationCode">Curator access code</label>
+      <input id="curation-code" type="password" autocomplete="current-password" required>
+      <button type="submit" class="primary" data-i18n="curationUnlock">Unlock curation</button>
+    </form>
+    <div id="curation-controls" hidden>
+      <p data-i18n="curationHelp">Your shortlist is shared online. Hearts remain your personal likes. Changes in other categories stay in this tab until saved.</p>
+
+      <div id="curation-conflict" hidden><p data-i18n="curationConflictHelp">This category changed online. Your draft is still here. Reload to discard it, or reapply your additions and removals to the latest list, then save.</p><div class="row"><button id="curation-reload" data-i18n="curationReload">Reload online selection</button><button id="curation-reapply" data-i18n="curationReapply">Reapply my changes</button></div></div>
+    </div>
+    <p id="curation-status" role="status" aria-live="polite"></p>
+  </section>
+  <aside id="curation-bar" class="curation-bar" aria-label="Save curation" hidden><div class="row"><button id="curation-save" data-i18n="curationSave" class="primary">Save shortlist online</button><button id="curation-logout" data-i18n="curationLock">Lock curation</button></div><p id="curation-bar-status" role="status" aria-live="polite"></p></aside>
   <section id="category-coverage" aria-labelledby="coverage-title" hidden>
     <div class="section-heading"><h2 id="coverage-title" data-i18n="browseCategories">Browse by category</h2></div>
     <div id="coverage-grid" class="coverage-grid"></div>
@@ -68,7 +83,7 @@
   <section id="candidates-section" aria-labelledby="candidates-title">
     <div class="section-heading candidates-heading"><h2 id="candidates-title" data-i18n="candidates">Artwork</h2><div class="candidate-tools">
       <label id="candidate-order-control" hidden><span data-i18n="order">Order</span>
-        <select id="candidate-order"><option value="suggested" data-i18n="suggestedOrder">Suggested</option><option value="likes" data-i18n="likedOrder">Most liked</option></select>
+        <select id="candidate-order"><option value="suggested" data-i18n="suggestedOrder">Gallery order</option><option value="likes" data-i18n="likedOrder">Most liked</option></select>
       </label>
       <button id="toggle-candidates" class="text-button" aria-controls="grid" aria-expanded="true" hidden>See all candidates</button>
     </div></div>
@@ -125,6 +140,6 @@
 </div>
 
 <script src="reviewer-client.js?v=profiles-20261110"></script>
-<script src="app.js?v=like-order-20261111"></script>
+<script src="app.js?v=online-curation-20261111"></script>
 </body>
 </html>

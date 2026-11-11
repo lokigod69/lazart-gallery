@@ -6,8 +6,10 @@
   const sharedHost = legacyHost || location.hostname === 'gallery.lazart.art' ||
     location.hostname === 'lazart-gallery.pages.dev' || location.hostname.endsWith('.lazart-gallery.pages.dev') ||
     (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === '8195');
+  const curationHost = sharedHost && !legacyHost;
   const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname) && location.pathname.startsWith('/gallery/');
   if ($('#owner-curate')) $('#owner-curate').hidden = !localPreview;
+  $('#btn-curate').hidden = !curationHost;
   const publicationOrigins = ['https://raw.githubusercontent.com/lokigod69/lazart-gallery/main/', 'https://lokigod69.github.io/lazart-gallery/'];
   const endpoint = '/.netlify/functions/print-requests';
   const state = { data: null, category: 'all', tags: new Set(), favsOnly: false, candidatesExpanded: false, list: [], index: -1, votes: null, key: null };
@@ -27,16 +29,18 @@
     filters: 'Tag filters', browseCategories: 'Browse by category', shortlist: 'Category shortlist',
     shortlistLabel: 'Selected', suggestedLabel: 'Suggested', shortlistProgress: '{n} of {target} shortlisted',
     suggestedCount: '{n} suggested', candidateCount: '{n} candidates', communityLikes: '{n} total likes',
-    order: 'Order', suggestedOrder: 'Suggested', likedOrder: 'Most liked',
+    order: 'Order', suggestedOrder: 'Gallery order', likedOrder: 'Most liked',
     shortlistHelp: 'Hearts save your personal likes and contribute to the gallery total. Only the gallery owner selects the final shortlist.',
   });
   Object.assign(words.de, {
     filters: 'Schlagwortfilter', browseCategories: 'Nach Kategorie stöbern', shortlist: 'Vorauswahl der Kategorie',
     shortlistLabel: 'Ausgewählt', suggestedLabel: 'Vorgeschlagen', shortlistProgress: '{n} von {target} in der Vorauswahl',
     suggestedCount: '{n} vorgeschlagen', candidateCount: '{n} Kandidaten', communityLikes: '{n} Likes insgesamt',
-    order: 'Reihenfolge', suggestedOrder: 'Empfohlen', likedOrder: 'Meiste Likes',
+    order: 'Reihenfolge', suggestedOrder: 'Galerie-Reihenfolge', likedOrder: 'Meiste Likes',
     shortlistHelp: 'Mit einem Herz speicherst du dein Like und erhöhst die Gesamtzahl der Galerie. Die endgültige Vorauswahl trifft nur der Galeriebesitzer.',
   });
+  Object.assign(words.en, {"curationUnavailable": "Shared shortlist unavailable. Reconnect before editing or saving.", "curationRetry": "Could not connect. Your draft is retained; try again.", "curationAlternate": "Another version selected", "curationAlternateHelp": "Another version of this artwork is selected. Remove that version first.", "curationConflictError": "The online shortlist changed. Resolve the conflict below.", "curationAuthError": "Enter the curator access code to continue. Your draft is retained.", "curationInvalid": "Could not save this selection. Check for duplicate versions of the same artwork.", "curationRate": "Too many unlock attempts. Please try again later.", "curationConflict": "Online changes detected. Your draft has been kept.", "curationUnlockHelp": "Unlock to edit the shared shortlist.", "curationChoose": "Choose a category to curate its shortlist.", "curationCount": "{n} selected", "curationDirty": "Unsaved changes", "curationSavedSelection": "Saved selection", "curationPending": "Pending categories: {n}", "curationSaved": "Shortlist saved online.", "curationReapplied": "Your changes were reapplied. Review and save the shortlist online.", "curationReloaded": "Loaded the latest online selection.", "curationLocked": "Curation locked. Pending drafts remain in this tab.", "curate": "Curate", "curationCode": "Curator access code", "curationUnlock": "Unlock curation", "curationHelp": "Your shortlist is shared online. Hearts remain your personal likes. Changes in other categories stay in this tab until saved.", "curationSave": "Save shortlist online", "curationLock": "Lock curation", "curationConflictHelp": "This category changed online. Your draft is still here. Reload to discard it, or reapply your additions and removals to the latest list, then save.", "curationReload": "Reload online selection", "curationReapply": "Reapply my changes", "curationAdd": "+ Add", "curationRemove": "− Remove", "curationAddLabel": "Add to shortlist: ", "curationRemoveLabel": "Remove from shortlist: "});
+  Object.assign(words.de, {"curationUnavailable": "Online-Auswahl nicht erreichbar. Vor dem Bearbeiten oder Speichern erneut verbinden.", "curationRetry": "Keine Verbindung. Dein Entwurf bleibt erhalten. Bitte erneut versuchen.", "curationAlternate": "Andere Version ausgewählt", "curationAlternateHelp": "Eine andere Version dieses Kunstwerks ist ausgewählt. Entferne zuerst diese Version.", "curationConflictError": "Die Online-Auswahl hat sich geändert. Löse den Konflikt unten.", "curationAuthError": "Gib den Zugangscode ein. Dein Entwurf bleibt erhalten.", "curationInvalid": "Auswahl konnte nicht gespeichert werden. Prüfe auf mehrere Versionen desselben Kunstwerks.", "curationRate": "Zu viele Anmeldeversuche. Bitte versuche es später erneut.", "curationConflict": "Online-Änderungen erkannt. Dein Entwurf bleibt erhalten.", "curationUnlockHelp": "Entsperren, um die gemeinsame Auswahl zu bearbeiten.", "curationChoose": "Wähle eine Kategorie, um ihre Auswahl zu bearbeiten.", "curationCount": "{n} ausgewählt", "curationDirty": "Ungespeicherte Änderungen", "curationSavedSelection": "Gespeicherte Auswahl", "curationPending": "Ungespeicherte Kategorien: {n}", "curationSaved": "Auswahl online gespeichert.", "curationReapplied": "Deine Änderungen wurden erneut angewendet. Prüfe die Auswahl und speichere sie online.", "curationReloaded": "Aktuelle Online-Auswahl geladen.", "curationLocked": "Bearbeitung gesperrt. Entwürfe bleiben in diesem Tab.", "curate": "Kuratieren", "curationCode": "Zugangscode zur Kuration", "curationUnlock": "Kuration entsperren", "curationHelp": "Deine Auswahl wird online geteilt. Herzen bleiben deine persönlichen Likes. Änderungen anderer Kategorien bleiben bis zum Speichern in diesem Tab.", "curationSave": "Auswahl online speichern", "curationLock": "Kuration sperren", "curationConflictHelp": "Diese Kategorie wurde online geändert. Dein Entwurf bleibt hier. Lade neu, um ihn zu verwerfen, oder übertrage deine Ergänzungen und Entfernungen auf die aktuelle Liste und speichere sie.", "curationReload": "Online-Auswahl neu laden", "curationReapply": "Meine Änderungen erneut anwenden", "curationAdd": "+ Hinzufügen", "curationRemove": "− Entfernen", "curationAddLabel": "Zur Auswahl hinzufügen: ", "curationRemoveLabel": "Aus Auswahl entfernen: "});
   const categoryCopy = {
     'cult-poster': ['Cinema for films that only exist in your imagination.', 'Kino für Filme, die nur in deiner Fantasie existieren.'],
     surrealism: ['Familiar things. Unexpected worlds.', 'Vertraute Dinge. Unerwartete Welten.'],
@@ -58,6 +62,107 @@
   function t(key, values = {}) { return Object.entries(values).reduce((text, [key, value]) => text.replaceAll('{' + key + '}', value), words[language][key] || words.en[key] || key); }
   let catalogueCheckedAt = Date.now(), cataloguePromise = null, deferredCatalogue = null;
   let likeTotals = null, likeTotalsRequest = null, likeTotalsCheckedAt = 0, candidateOrder = 'suggested';
+
+  const curation = { open: curationHost && new URL(location.href).searchParams.get('curate') === '1', authenticated: false, loaded: false, categories: {}, drafts: new Map(), busy: false, request: null, message: '' };
+  const sameIds = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  function baselineIds(category) {
+    const entry = state.data.shop.shortlists?.[category];
+    return entry ? entry.artwork_ids.slice() : allImages().filter(img => img.shop.pick_category_ids.includes(category) || img.shop.suggested_category_ids.includes(category)).map(img => img.id);
+  }
+  function selectionIds(category) { return (curation.authenticated && curation.open ? curation.drafts.get(category)?.ids : null) || curation.categories[category]?.artwork_ids || baselineIds(category); }
+  function dirtyDrafts() { return [...curation.drafts.values()].filter(d => !sameIds(d.ids, d.baseIds)); }
+  function draftFor(category) {
+    if (!curation.drafts.has(category)) {
+      const ids = selectionIds(category).slice();
+      curation.drafts.set(category, { ids, baseIds: ids.slice(), revision: curation.categories[category]?.revision || 0, conflict: false });
+    }
+    return curation.drafts.get(category);
+  }
+  function acceptCuration(payload) {
+    const changed = !curation.loaded || curation.authenticated !== payload.authenticated || JSON.stringify(curation.categories) !== JSON.stringify(payload.categories || {});
+    if (!curation.loaded) curation.message = '';
+    curation.loaded = true; curation.authenticated = payload.authenticated; curation.categories = payload.categories || {};
+    for (const [category, draft] of curation.drafts) {
+      if (sameIds(draft.ids, draft.baseIds)) curation.drafts.delete(category);
+      else draft.conflict = draft.revision !== (curation.categories[category]?.revision || 0);
+    }
+    if (changed) { renderCoverage(); renderGrid(); }
+  }
+  async function curationRequest(body) {
+    const response = await fetch('/api/curation', { method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', headers: body ? { 'Content-Type': 'application/json' } : {}, ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(15000) });
+    const payload = await response.json();
+    if (!response.ok) {
+      if (response.status === 401) curation.authenticated = false;
+      if (response.status === 409 && body?.category_id) {
+        if (payload.category) curation.categories[body.category_id] = payload.category;
+        else delete curation.categories[body.category_id];
+        draftFor(body.category_id).conflict = true;
+      }
+      throw new Error(response.status === 409 ? t('curationConflictError') : response.status === 401 ? t('curationAuthError') : response.status === 400 ? t('curationInvalid') : response.status === 429 ? t('curationRate') : t('curationRetry'));
+    }
+    return payload;
+  }
+  async function refreshCuration() {
+    if (!curationHost || document.hidden || curation.busy || curation.request || !$('#viewer').hidden || !$('#sheet').hidden) return;
+    curation.request = (async () => { try { acceptCuration(await curationRequest()); } catch { if (!curation.loaded) { curation.message = t('curationUnavailable'); renderCuration(); } } finally { curation.request = null; } })();
+    await curation.request;
+  }
+  function renderCuration() {
+    $('#curation-panel').hidden = !curation.open;
+    $('#curation-panel').setAttribute('aria-label', t('curate'));
+    $('#curation-bar').setAttribute('aria-label', t('curationSave'));
+    $('#curation-bar').hidden = !curation.open || !curation.authenticated;
+    document.documentElement.classList.toggle('curating', curation.open && curation.authenticated);
+    $('#curation-login').hidden = curation.authenticated;
+    $('#curation-controls').hidden = !curation.authenticated;
+    $('#btn-curate').setAttribute('aria-expanded', curation.open);
+    $('#btn-curate').setAttribute('aria-controls', 'curation-panel');
+    const draft = curation.drafts.get(state.category), dirty = draft && !sameIds(draft.ids, draft.baseIds);
+    const editable = !['all', 'uncategorized'].includes(state.category);
+    $('#curation-save').disabled = curation.busy || !curation.loaded || !dirty || !!draft?.conflict || !editable;
+    for (const id of ['curation-logout', 'curation-reload', 'curation-reapply']) $('#' + id).disabled = curation.busy;
+    $('#curation-conflict').hidden = !draft?.conflict;
+    $('#curation-status').textContent = curation.busy ? t('saving') : draft?.conflict ? t('curationConflict') : curation.message || (!curation.authenticated ? t('curationUnlockHelp') : !editable ? t('curationChoose') : t('curationCount', { n: selectionIds(state.category).length }) + ' · ' + (dirty ? t('curationDirty') : t('curationSavedSelection')) + (dirtyDrafts().length ? ' · ' + t('curationPending', { n: dirtyDrafts().length }) : ''));
+    $('#curation-bar-status').textContent = $('#curation-status').textContent;
+  }
+  function toggleCurated(id) {
+    const selected = selectionIds(state.category), image = allImages().find(img => img.id === id);
+    if (!selected.includes(id) && image?.shop.concept_group && allImages().some(other => other.id !== id && selected.includes(other.id) && other.shop.concept_group === image.shop.concept_group)) return;
+    const oldGrid = selected.includes(id) ? $('#shortlist-grid') : $('#grid');
+    const oldIds = [...oldGrid.children].map(card => card.dataset.imageId), indexInGrid = oldIds.indexOf(id);
+    const nextFocus = oldIds[indexInGrid + 1] || oldIds[indexInGrid - 1];
+    const scrollY = window.scrollY;
+    const draft = draftFor(state.category), index = draft.ids.indexOf(id);
+    if (index < 0) draft.ids.push(id); else draft.ids.splice(index, 1);
+    curation.message = ''; renderCoverage(); renderGrid();
+    (nextFocus ? document.querySelector('[data-curate-id="' + nextFocus + '"]') : $('#curation-save'))?.focus({ preventScroll: true });
+    window.scrollTo({ top: scrollY });
+  }
+  async function saveCuration() {
+    const category = state.category, draft = draftFor(category);
+    if (curation.busy || draft.conflict || sameIds(draft.ids, draft.baseIds)) return;
+    curation.busy = true; curation.message = ''; renderGrid();
+    try {
+      // A GET already in flight must settle before the save so stale data cannot replace its response.
+      if (curation.request) await curation.request;
+      if (draft.conflict) return;
+      const payload = await curationRequest({ action: 'save', category_id: category, base_revision: draft.revision, artwork_ids: draft.ids.slice() });
+      curation.drafts.delete(category); acceptCuration(payload); curation.message = t('curationSaved');
+    } catch (error) { curation.message = error.message === 'offline' || error.name === 'TypeError' || error.name === 'TimeoutError' ? t('curationRetry') : error.message; }
+    finally { curation.busy = false; renderGrid(); }
+  }
+  function resolveCuration(reapply) {
+    const category = state.category, draft = curation.drafts.get(category); if (!draft) return;
+    const latest = curation.categories[category]?.artwork_ids || baselineIds(category);
+    curation.drafts.delete(category);
+    if (reapply) {
+      const removed = new Set(draft.baseIds.filter(id => !draft.ids.includes(id)));
+      const added = draft.ids.filter(id => !draft.baseIds.includes(id));
+      draftFor(category).ids = [...latest.filter(id => !removed.has(id)), ...added.filter(id => !latest.includes(id))];
+    }
+    curation.message = reapply ? t('curationReapplied') : t('curationReloaded');
+    renderCoverage(); renderGrid(); $('#curation-save').focus();
+  }
 
   function renderLikeTotal(element, id) {
     const total = likeTotals?.[id] ?? 0;
@@ -125,7 +230,9 @@
   }
   function setLanguage(value, explicit = false) {
     if (!['en', 'de'].includes(value) || (!explicit && languageExplicit)) return;
+    const curationMessageKey = Object.keys(words.en).find(key => key.startsWith('curation') && [words.en[key], words.de[key]].includes(curation.message));
     language = value;
+    if (curationMessageKey) curation.message = t(curationMessageKey);
     if (explicit) { languageExplicit = true; try { localStorage.setItem('lazart-language', value); } catch {} }
     document.documentElement.lang = value;
     document.querySelectorAll('[data-language]').forEach(button => { button.classList.toggle('on', button.dataset.language === value); button.setAttribute('aria-pressed', button.dataset.language === value); });
@@ -248,8 +355,11 @@
   function categoryLabel(category) { return language === 'de' ? category.label_de || category.label : category.label; }
   function tagLabel(tag) { return language === 'de' ? tag.label_de || tag.label : tag.label; }
   function hasCategory(img, category = state.category) { return category === 'all' || img.shop.category_ids.includes(category); }
-  function isPick(img, category = state.category) { return category === 'all' ? img.shop.pick_category_ids.length > 0 : img.shop.pick_category_ids.includes(category); }
-  function isSuggested(img, category = state.category) { return category !== 'all' && img.shop.suggested_category_ids.includes(category); }
+  function isPick(img, category = state.category) {
+    if (!curationHost) return category === 'all' ? img.shop.pick_category_ids.length > 0 : img.shop.pick_category_ids.includes(category);
+    return category === 'all' ? categoryOptions().some(c => selectionIds(c.slug).includes(img.id)) : selectionIds(category).includes(img.id);
+  }
+  function isSuggested(img, category = state.category) { return !curationHost && category !== 'all' && img.shop.suggested_category_ids.includes(category); }
   function conceptCount(images) { return new Set(images.map(img => img.shop.concept_group || img.id)).size; }
   function categoryTarget(category) { return category?.target || state.data.shop.target_per_category || 30; }
   function syncUrl() {
@@ -260,6 +370,7 @@
     history.replaceState(null, '', url);
   }
   function chooseCategory(slug) {
+    curation.message = '';
     state.category = slug; state.candidatesExpanded = false; state.favsOnly = false;
     $('#btn-favs').classList.toggle('on', false); $('#btn-favs').setAttribute('aria-pressed', false);
     $('#category-menu').open = false; $('#category-search').value = '';
@@ -308,7 +419,7 @@
       const label = document.createElement('span'); label.className = 'coverage-label';
       const title = document.createElement('strong'); title.textContent = categoryLabel(category);
       const count = document.createElement('span'); count.className = 'meta';
-      count.textContent = t('shortlistProgress', { n: conceptCount([...selected, ...suggested]), target: categoryTarget(category) });
+      count.textContent = t('chosenAll', { n: conceptCount([...selected, ...suggested]) });
       const total = document.createElement('span'); total.className = 'meta';
       total.textContent = t('candidateCount', { n: candidates.length });
       label.appendChild(title); label.appendChild(count); label.appendChild(total);
@@ -346,7 +457,7 @@
     $('#btn-theme').setAttribute('aria-pressed', theme === 'light');
   }
   function makeCard(img, index, status) {
-    const card = document.createElement('article'); card.className = 'card' + (img.w > img.h ? ' wide' : ''); card.dataset.imageId = img.id;
+    const card = document.createElement('article'); card.className = 'card' + (img.w > img.h ? ' wide' : ''); card.dataset.imageId = img.id; card.dataset.aspect = String((img.w || 1024) / (img.h || 1536));
     const art = document.createElement('button'); art.type = 'button'; art.className = 'artwork-open'; art.setAttribute('aria-label', img.title || img.key || 'Artwork');
     art.dataset.openId = img.id; art.onclick = () => open(index);
     const pic = document.createElement('img'); pic.loading = 'lazy'; pic.decoding = 'async'; pic.alt = '';
@@ -354,7 +465,7 @@
     pic.onload = () => pic.classList.add('loaded');
     pic.onerror = () => { pic.classList.add('failed'); art.classList.add('image-failed'); art.setAttribute('data-error', t('imageUnavailable')); };
     art.appendChild(pic); card.appendChild(art);
-    if (status) {
+    if (status && !curationHost) {
       const label = document.createElement('span'); label.className = 'shortlist-label' + (status === 'suggestedLabel' ? ' suggested' : '');
       label.textContent = t(status); card.appendChild(label);
     }
@@ -372,18 +483,54 @@
     const total = document.createElement('span'); total.className = 'like-total'; total.dataset.likeTotal = img.id;
     renderLikeTotal(total, img.id);
     reactions.appendChild(heart); reactions.appendChild(total);
-    caption.appendChild(title); caption.appendChild(reactions); card.appendChild(caption); return card;
+    caption.appendChild(title); caption.appendChild(reactions); card.appendChild(caption);
+    if (curationHost && curation.open && curation.authenticated && !['all', 'uncategorized'].includes(state.category)) {
+      const selected = selectionIds(state.category).includes(img.id);
+      const control = document.createElement('button'); control.type = 'button'; control.className = 'curate-art ' + (selected ? 'remove' : 'add');
+      control.dataset.curateId = img.id; control.textContent = selected ? t('curationRemove') : t('curationAdd');
+      control.setAttribute('aria-label', (selected ? t('curationRemoveLabel') : t('curationAddLabel')) + title.textContent);
+      const sameConcept = !selected && img.shop.concept_group && allImages().some(other => other.id !== img.id && selectionIds(state.category).includes(other.id) && other.shop.concept_group === img.shop.concept_group);
+      control.disabled = curation.busy || !curation.loaded || sameConcept;
+      if (sameConcept) { control.textContent = t('curationAlternate'); control.title = t('curationAlternateHelp'); control.setAttribute('aria-label', t('curationAlternateHelp') + ': ' + title.textContent); }
+      control.onclick = () => toggleCurated(img.id); card.appendChild(control);
+    }
+    return card;
   }
+  // Lay out consecutive artwork in proportional rows, retaining DOM and shortlist order.
+  // Each row shares an image height; the final row keeps a modest natural size.
+  function layoutArtwork(grid) {
+    // clientWidth rounds fractional CSS pixels up, which can wrap the last card.
+    const width = Math.floor((grid.getBoundingClientRect?.().width || grid.clientWidth) * 100) / 100 - .1;
+    if (width <= 0 || grid.hidden) return;
+    const gap = 16, columns = width > 1050 ? 4 : width > 650 ? 3 : 2;
+    const cards = [...grid.children], targetRatio = columns * .95;
+    let offset = 0, rowIndex = 0;
+    grid.classList.add('justified');
+    while (offset < cards.length) {
+      const row = []; let sum = 0;
+      while (offset < cards.length && row.length < columns && sum < targetRatio) {
+        const card = cards[offset++]; row.push(card); sum += Number(card.dataset.aspect) || 1;
+      }
+      const available = width - gap * (row.length - 1);
+      const height = offset === cards.length && row.length < columns ? Math.min(available / sum, width / columns / .85) : available / sum;
+      for (const card of row) {
+        card.style.width = Math.floor(height * (Number(card.dataset.aspect) || 1) * 100) / 100 + 'px';
+        card.dataset.row = String(rowIndex);
+      }
+      rowIndex++;
+    }
+  }
+  function layoutArtworkGrids() { layoutArtwork($('#shortlist-grid')); layoutArtwork($('#grid')); }
   function renderGrid() {
     const categoryImages = allImages().filter(img => hasCategory(img));
     const images = categoryImages.filter(img => [...state.tags].every(tag => img.shop.tag_ids.includes(tag)) && (!state.favsOnly || state.votes.reactions[img.id]?.love)).sort((a,b) => (a.rank || 0) - (b.rank || 0));
     const picks = images.filter(img => isPick(img));
     const suggestions = images.filter(img => !isPick(img) && isSuggested(img));
-    const order = new Map((state.data.shop.shortlists?.[state.category]?.artwork_ids || []).map((id, index) => [id, index]));
+    const order = new Map((curationHost ? selectionIds(state.category) : state.data.shop.shortlists?.[state.category]?.artwork_ids || []).map((id, index) => [id, index]));
     const byShortlistOrder = (a, b) => (order.get(a.id) ?? order.size) - (order.get(b.id) ?? order.size);
     const shortlistImages = [...picks.sort(byShortlistOrder), ...suggestions.sort(byShortlistOrder)];
     const candidates = images.filter(img => !isPick(img) && !isSuggested(img));
-    const split = shortlistImages.length > 0 && !state.favsOnly;
+    const split = (shortlistImages.length > 0 || (curation.open && curation.authenticated && !['all', 'uncategorized'].includes(state.category))) && !state.favsOnly;
     const expanded = !split || state.candidatesExpanded;
     const candidateImages = split ? candidates : images;
     if (!state.favsOnly && candidateOrder === 'likes' && likeTotals) {
@@ -402,7 +549,7 @@
     const category = categoryOptions().find(c => c.slug === state.category);
     const suggestedCount = conceptCount(suggestions);
     const selectedLabel = state.tags.size && shownPicks !== totalPicks ? t('shortlistFiltered', { n: shownPicks, total: totalPicks }) :
-      state.category === 'all' ? t('chosenAll', { n: totalPicks }) : t('chosen', { n: totalPicks, target: categoryTarget(category) });
+      t('chosenAll', { n: totalPicks });
     $('#shortlist-count').textContent = [selectedLabel, suggestedCount ? t('suggestedCount', { n: suggestedCount }) : ''].filter(Boolean).join(' · ');
     $('#candidates-section').hidden = split && !candidates.length;
     $('#candidates-title').textContent = t(split ? state.category === 'all' ? 'allCandidates' : 'moreCandidates' : 'candidates');
@@ -420,6 +567,8 @@
     $('#empty-description').textContent = t(emptyCategory ? 'noArtHelp' : 'emptyHelp');
     $('#empty-reset').textContent = t(emptyCategory ? 'exploreAll' : 'clearFilters');
     $('#empty-reset').onclick = () => { if (emptyCategory) chooseCategory('all'); else clearFilters(); };
+    layoutArtworkGrids();
+    renderCuration();
     $('#foot').textContent = t('images', { n: images.length }) + ' · LAZART · ' + t('built') + ' ' + (state.data.built_at || '').slice(0, 10);
   }
 
@@ -553,6 +702,26 @@
     syncUrl(); renderCategories(); renderTags(); renderGrid();
   }
   function wire() {
+    if (typeof ResizeObserver !== 'undefined') { const observer = new ResizeObserver(layoutArtworkGrids); observer.observe($('#shortlist-grid')); observer.observe($('#grid')); }
+    else window.addEventListener('resize', layoutArtworkGrids);
+    $('#btn-curate').onclick = () => { curation.open = !curation.open; renderGrid(); if (curation.open && !curation.authenticated) $('#curation-code').focus(); };
+    $('#curation-login').onsubmit = async event => {
+      event.preventDefault(); if (curation.busy) return;
+      curation.busy = true; renderCuration();
+      try { if (curation.request) await curation.request; acceptCuration(await curationRequest({ action: 'login', code: $('#curation-code').value })); curation.message = ''; }
+      catch (error) { curation.message = error.message === 'offline' || error.name === 'TypeError' || error.name === 'TimeoutError' ? t('curationRetry') : error.message; }
+      finally { $('#curation-code').value = ''; curation.busy = false; renderGrid(); if (curation.authenticated) $('#category-trigger').focus(); }
+    };
+    $('#curation-save').onclick = saveCuration;
+    $('#curation-reload').onclick = () => resolveCuration(false);
+    $('#curation-reapply').onclick = () => resolveCuration(true);
+    $('#curation-logout').onclick = async () => {
+      curation.busy = true; renderCuration();
+      try { if (curation.request) await curation.request; acceptCuration(await curationRequest({ action: 'logout' })); curation.message = t('curationLocked'); }
+      catch (error) { curation.message = error.message === 'offline' || error.name === 'TypeError' || error.name === 'TimeoutError' ? t('curationRetry') : error.message; }
+      finally { curation.busy = false; renderGrid(); }
+    };
+    window.addEventListener('beforeunload', event => { if (dirtyDrafts().length) { event.preventDefault(); event.returnValue = ''; } });
     $('#close').onclick = close;
     $('#prev').onclick = () => step(-1); $('#next').onclick = () => step(1);
     $('#r-love').onclick = () => toggle('love'); $('#r-no').onclick = () => toggle('no');
@@ -771,12 +940,12 @@
       $('#vote-status').hidden = false; $('#vote-status').textContent = t('cloudLink');
     }
     if (sharedHost || localPreview) {
-      refreshLikeTotals();
+      refreshLikeTotals(); refreshCuration();
       if (!reviewer) recoverLegacyHearts();
-      const awaken = () => { if (!document.hidden) { refreshCatalogue(true); refreshLikeTotals(); if (reviewer) reviewer.refresh().then(refreshFeedbackUI); } };
+      const awaken = () => { if (!document.hidden) { refreshCatalogue(true); refreshLikeTotals(); refreshCuration(); if (reviewer) reviewer.refresh().then(refreshFeedbackUI); } };
       window.addEventListener('focus', awaken);
       document.addEventListener('visibilitychange', awaken);
-      setInterval(() => { if (!document.hidden) { refreshCatalogue(); refreshLikeTotals(); if (reviewer && $('#viewer').hidden && $('#sheet').hidden) reviewer.refresh().then(refreshFeedbackUI); } }, 30000);
+      setInterval(() => { if (!document.hidden) { refreshCatalogue(); refreshLikeTotals(); refreshCuration(); if (reviewer && $('#viewer').hidden && $('#sheet').hidden) reviewer.refresh().then(refreshFeedbackUI); } }, 30000);
     }
   }).catch((e) => { $('#subtitle').textContent = 'Could not load data.json (' + e.message + ')'; });
 })();
