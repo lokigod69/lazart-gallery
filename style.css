@@ -200,3 +200,22 @@ html.curating .gallery-content {padding-bottom:160px}
 .grid.justified .artwork-open img {height:auto;object-fit:contain}
 
 [data-theme="light"] .gallery-content {background:linear-gradient(90deg,var(--bg),#f0efec 8%,#f0efec 92%,var(--bg))}
+
+/* Quiet, image-local curator tools. Focus and touch retain discoverability. */
+.artwork-frame {position:relative}
+.curator-actions {position:absolute;bottom:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;opacity:0;transition:opacity .16s;pointer-events:none}
+.artwork-frame:hover .curator-actions,.artwork-frame:focus-within .curator-actions {opacity:1;pointer-events:auto}
+.curator-actions .curate-art,.curator-actions .curate-move {width:auto;min-width:34px;min-height:34px;margin:0;padding:5px 10px;border:1px solid #ffffff45;border-radius:5px;background:#171719df;color:#fff;font-size:13px;box-shadow:0 1px 8px #0003;backdrop-filter:blur(8px)}
+.curator-actions .curate-art {font-size:22px;line-height:22px;font-weight:400;order:2}
+.curator-actions .curate-art.remove {order:0}
+.curator-actions .curate-art.add {color:#c7ebd2}
+.curator-actions .curate-art.remove {color:#f2c9cb}
+.curator-actions .curate-move {font-weight:500}
+.curator-actions button:focus-visible {outline:2px solid var(--accent);outline-offset:3px}
+@media(hover:none),(pointer:coarse) {.curator-actions {opacity:1;pointer-events:auto}.curator-actions .curate-art,.curator-actions .curate-move {min-height:44px;min-width:44px}}
+.gallery-content {background:linear-gradient(90deg,var(--bg) 0%,#191a1b 5%,#252525 14%,#303030 27%,#363636 44%,#363636 56%,#303030 73%,#252525 86%,#191a1b 95%,var(--bg) 100%)}
+[data-theme="light"] .gallery-content {background:linear-gradient(90deg,var(--bg),#f5f4f0 15%,#f0efec 40%,#f0efec 60%,#f5f4f0 85%,var(--bg))}
+.move-dialog {width:min(460px,calc(100% - 32px));padding:24px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text)}
+.move-dialog::backdrop {background:#0009;backdrop-filter:blur(3px)}
+.move-dialog h2 {font-size:21px;margin:0 0 12px}.move-dialog p {font-size:14px}.move-dialog #move-help {color:var(--muted)}
+.move-dialog select {display:block;width:100%;margin:8px 0 16px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:5px;font:inherit}

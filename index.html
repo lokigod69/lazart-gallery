@@ -18,7 +18,7 @@
 <meta property="og:image:height" content="630">
 <link rel="stylesheet" href="brand.css?v=apex-ink-v1">
 <script>try{const theme=localStorage.getItem('lazart-theme');if(theme==='light'||theme==='dark')document.documentElement.dataset.theme=theme;}catch{}</script>
-<link rel="stylesheet" href="style.css?v=online-curation-20261111">
+<link rel="stylesheet" href="style.css?v=category-moves-20261111">
 </head>
 <body>
 <a class="skip-link" href="#gallery-content">Skip to artwork</a>
@@ -94,6 +94,9 @@
   <p class="foot" id="foot"></p>
 </main>
 
+<dialog id="move-dialog" class="move-dialog" aria-labelledby="move-title">
+<form id="move-form"><h2 id="move-title">Move to another category</h2><p id="move-artwork"></p><p id="move-help"></p><label for="move-category">Category / Kategorie</label><select id="move-category" required></select><p id="move-status" role="alert"></p><div class="row"><button id="move-cancel" type="button">Cancel</button><button id="move-confirm" type="submit" class="primary">Move artwork</button></div></form>
+</dialog>
 <div id="viewer" class="viewer" role="dialog" aria-modal="true" aria-labelledby="v-title" hidden>
   <button class="close" id="close" aria-label="Close">×</button>
   <button class="nav prev" id="prev" aria-label="Previous">‹</button>
@@ -140,6 +143,6 @@
 </div>
 
 <script src="reviewer-client.js?v=profiles-20261110"></script>
-<script src="app.js?v=online-curation-20261111"></script>
+<script src="app.js?v=category-moves-20261111"></script>
 </body>
 </html>

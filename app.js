@@ -63,7 +63,7 @@
   let catalogueCheckedAt = Date.now(), cataloguePromise = null, deferredCatalogue = null;
   let likeTotals = null, likeTotalsRequest = null, likeTotalsCheckedAt = 0, candidateOrder = 'suggested';
 
-  const curation = { open: curationHost && new URL(location.href).searchParams.get('curate') === '1', authenticated: false, loaded: false, categories: {}, drafts: new Map(), busy: false, request: null, message: '' };
+  const curation = { open: curationHost && new URL(location.href).searchParams.get('curate') === '1', authenticated: false, loaded: false, categories: {}, memberships: {}, membership_revision: 0, drafts: new Map(), busy: false, request: null, message: '' };
   const sameIds = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   function baselineIds(category) {
     const entry = state.data.shop.shortlists?.[category];
@@ -79,20 +79,24 @@
     return curation.drafts.get(category);
   }
   function acceptCuration(payload) {
-    const changed = !curation.loaded || curation.authenticated !== payload.authenticated || JSON.stringify(curation.categories) !== JSON.stringify(payload.categories || {});
+    const changed = !curation.loaded || curation.authenticated !== payload.authenticated || JSON.stringify(curation.categories) !== JSON.stringify(payload.categories || {}) || curation.membership_revision !== (payload.membership_revision || 0);
     if (!curation.loaded) curation.message = '';
-    curation.loaded = true; curation.authenticated = payload.authenticated; curation.categories = payload.categories || {};
+    curation.loaded = true; curation.authenticated = payload.authenticated; curation.categories = payload.categories || {}; curation.memberships = payload.memberships || {}; curation.membership_revision = payload.membership_revision || 0;
     for (const [category, draft] of curation.drafts) {
       if (sameIds(draft.ids, draft.baseIds)) curation.drafts.delete(category);
       else draft.conflict = draft.revision !== (curation.categories[category]?.revision || 0);
     }
-    if (changed) { renderCoverage(); renderGrid(); }
+    if (changed) { renderCategories(); renderCoverage(); renderGrid(); }
   }
   async function curationRequest(body) {
     const response = await fetch('/api/curation', { method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', headers: body ? { 'Content-Type': 'application/json' } : {}, ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(15000) });
     const payload = await response.json();
     if (!response.ok) {
       if (response.status === 401) curation.authenticated = false;
+      if (response.status === 409 && body?.action === 'move') {
+        acceptCuration(await curationRequest());
+        throw new Error(language==='de' ? 'Kategorien wurden geändert. Schließe den Dialog und versuche es erneut.' : 'Categories changed. Close this dialog and try again.');
+      }
       if (response.status === 409 && body?.category_id) {
         if (payload.category) curation.categories[body.category_id] = payload.category;
         else delete curation.categories[body.category_id];
@@ -103,7 +107,7 @@
     return payload;
   }
   async function refreshCuration() {
-    if (!curationHost || document.hidden || curation.busy || curation.request || !$('#viewer').hidden || !$('#sheet').hidden) return;
+    if (!curationHost || document.hidden || curation.busy || curation.request || !$('#viewer').hidden || !$('#sheet').hidden || $('#move-dialog').open) return;
     curation.request = (async () => { try { acceptCuration(await curationRequest()); } catch { if (!curation.loaded) { curation.message = t('curationUnavailable'); renderCuration(); } } finally { curation.request = null; } })();
     await curation.request;
   }
@@ -146,7 +150,7 @@
       // A GET already in flight must settle before the save so stale data cannot replace its response.
       if (curation.request) await curation.request;
       if (draft.conflict) return;
-      const payload = await curationRequest({ action: 'save', category_id: category, base_revision: draft.revision, artwork_ids: draft.ids.slice() });
+      const payload = await curationRequest({ action: 'save', category_id: category, base_revision: draft.revision, artwork_ids: draft.ids.slice(), membership_revision: curation.membership_revision });
       curation.drafts.delete(category); acceptCuration(payload); curation.message = t('curationSaved');
     } catch (error) { curation.message = error.message === 'offline' || error.name === 'TypeError' || error.name === 'TimeoutError' ? t('curationRetry') : error.message; }
     finally { curation.busy = false; renderGrid(); }
@@ -354,7 +358,8 @@
   function categoryOptions() { return [...state.data.shop.categories, state.data.shop.holding_category]; }
   function categoryLabel(category) { return language === 'de' ? category.label_de || category.label : category.label; }
   function tagLabel(tag) { return language === 'de' ? tag.label_de || tag.label : tag.label; }
-  function hasCategory(img, category = state.category) { return category === 'all' || img.shop.category_ids.includes(category); }
+  function effectiveCategories(img) { return curation.memberships[img.id] || img.shop.category_ids; }
+  function hasCategory(img, category = state.category) { return category === 'all' || effectiveCategories(img).includes(category); }
   function isPick(img, category = state.category) {
     if (!curationHost) return category === 'all' ? img.shop.pick_category_ids.length > 0 : img.shop.pick_category_ids.includes(category);
     return category === 'all' ? categoryOptions().some(c => selectionIds(c.slug).includes(img.id)) : selectionIds(category).includes(img.id);
@@ -464,7 +469,7 @@
     pic.width = img.w || 1024; pic.height = img.h || 1536; pic.src = img.thumb;
     pic.onload = () => pic.classList.add('loaded');
     pic.onerror = () => { pic.classList.add('failed'); art.classList.add('image-failed'); art.setAttribute('data-error', t('imageUnavailable')); };
-    art.appendChild(pic); card.appendChild(art);
+    art.appendChild(pic); const frame = document.createElement('div'); frame.className = 'artwork-frame'; frame.appendChild(art); card.appendChild(frame);
     if (status && !curationHost) {
       const label = document.createElement('span'); label.className = 'shortlist-label' + (status === 'suggestedLabel' ? ' suggested' : '');
       label.textContent = t(status); card.appendChild(label);
@@ -492,9 +497,42 @@
       const sameConcept = !selected && img.shop.concept_group && allImages().some(other => other.id !== img.id && selectionIds(state.category).includes(other.id) && other.shop.concept_group === img.shop.concept_group);
       control.disabled = curation.busy || !curation.loaded || sameConcept;
       if (sameConcept) { control.textContent = t('curationAlternate'); control.title = t('curationAlternateHelp'); control.setAttribute('aria-label', t('curationAlternateHelp') + ': ' + title.textContent); }
-      control.onclick = () => toggleCurated(img.id); card.appendChild(control);
+      control.textContent = selected ? '−' : '+';
+      control.title = control.getAttribute ? control.getAttribute('aria-label') : (selected ? t('curationRemove') : t('curationAdd'));
+      control.onclick = () => toggleCurated(img.id);
+      const actions = document.createElement('div'); actions.className = 'curator-actions'; actions.appendChild(control);
+      const move = document.createElement('button'); move.type='button'; move.className='curate-move';
+      move.textContent = language === 'de' ? '↗ Verschieben' : '↗ Move'; move.setAttribute('aria-label',(language === 'de' ? 'Kategorie ändern: ' : 'Move to category: ') + title.textContent);
+      move.disabled=curation.busy; move.onclick=()=>openMove(img); actions.appendChild(move); frame.appendChild(actions);
     }
     return card;
+  }
+  let movingArtwork = null;
+  function openMove(img) {
+    if (dirtyDrafts().length) { curation.message = language==='de' ? 'Bitte speichere zuerst deine offenen Auswahlen.' : 'Save your pending shortlist changes before moving artwork.'; renderCuration(); return; }
+    movingArtwork = {id:img.id,from:state.category,revision:curation.membership_revision};
+    $('#move-title').textContent = language==='de' ? 'In andere Kategorie verschieben' : 'Move to another category';
+    $('#move-artwork').textContent = img.title || img.key;
+    $('#move-help').textContent = language==='de' ? 'Wird sofort online gespeichert. Das Bild wird aus dieser Kategorie und ihrer Auswahl entfernt und in der Zielkategorie als Kandidat abgelegt. Andere Kategorien und Likes bleiben erhalten.' : 'Saved online immediately. Removes this work from this category and its shortlist, and places it among the destination’s candidates. Other categories and likes stay unchanged.';
+    $('#move-confirm').textContent = language==='de' ? 'Verschieben' : 'Move artwork';
+    $('#move-cancel').textContent = language==='de' ? 'Abbrechen' : 'Cancel';
+    const select=$('#move-category'); select.innerHTML='';
+    for (const category of categoryOptions().filter(c=>!['all','uncategorized',state.category].includes(c.slug))) {
+      const option=document.createElement('option'); option.value=category.slug; option.textContent=categoryLabel(category); select.appendChild(option);
+    }
+    $('#move-status').textContent=''; $('#move-dialog').showModal(); select.focus();
+  }
+  async function confirmMove(event) {
+    event.preventDefault(); if(curation.busy || !movingArtwork) return;
+    curation.busy=true; $('#move-confirm').disabled=true; $('#move-cancel').disabled=true;
+    try {
+      if(curation.request) await curation.request;
+      const payload=await curationRequest({action:'move',artwork_id:movingArtwork.id,from_category:movingArtwork.from,to_category:$('#move-category').value,membership_revision:movingArtwork.revision});
+      acceptCuration(payload); $('#move-dialog').close(); movingArtwork=null;
+      curation.message=language==='de' ? 'Als Kandidat in die Zielkategorie verschoben.' : 'Moved to the destination category as a candidate.';
+      renderCategories(); renderCoverage();
+    } catch(error) { $('#move-status').textContent=error.message; await refreshCuration(); }
+    finally {curation.busy=false; $('#move-confirm').disabled=false; $('#move-cancel').disabled=false; renderGrid();}
   }
   // Lay out consecutive artwork in proportional rows, retaining DOM and shortlist order.
   // Each row shares an image height; the final row keeps a modest natural size.
@@ -583,7 +621,7 @@
     const big = $('#big');
     big.src = img.full; big.alt = img.title || '';
     $('#v-title').textContent = img.title || img.key;
-    $('#v-meta').textContent = img.shop.category_ids.map(slug => categoryOptions().find(c => c.slug === slug)).filter(Boolean).map(categoryLabel).join(' · ');
+    $('#v-meta').textContent = effectiveCategories(img).map(slug => categoryOptions().find(c => c.slug === slug)).filter(Boolean).map(categoryLabel).join(' · ');
     $('#v-prompt').textContent = [
       img.prompt, 'Key: ' + img.key, 'Run: ' + img.run,
       'Original category: ' + img.categoryTitle, img.lane ? 'Original lane: ' + img.lane : '',
@@ -704,6 +742,9 @@
   function wire() {
     if (typeof ResizeObserver !== 'undefined') { const observer = new ResizeObserver(layoutArtworkGrids); observer.observe($('#shortlist-grid')); observer.observe($('#grid')); }
     else window.addEventListener('resize', layoutArtworkGrids);
+    $('#move-form').onsubmit = confirmMove;
+    $('#move-cancel').onclick = () => $('#move-dialog').close();
+    $('#move-dialog').addEventListener('cancel', event=>{if(curation.busy)event.preventDefault();});
     $('#btn-curate').onclick = () => { curation.open = !curation.open; renderGrid(); if (curation.open && !curation.authenticated) $('#curation-code').focus(); };
     $('#curation-login').onsubmit = async event => {
       event.preventDefault(); if (curation.busy) return;
